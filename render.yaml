@@ -1,0 +1,33 @@
+# Render blueprint -- deploys the Wreckognise API.
+#
+# Render's free web services sleep after 15 minutes idle and get a fresh
+# filesystem on every deploy, so surveys (held in memory) and rendered PNGs
+# (written to disk) do not survive a restart. That is fine for a demo: the
+# dashboard's "Explore Live Scan" button rebuilds everything in seconds.
+# For anything durable, move to a paid instance with a persistent disk and
+# swap `services/store.py` for a real database.
+
+services:
+  - type: web
+    name: wreckognise-api
+    runtime: python
+    plan: free
+    region: singapore          # closest region to an India-based demo
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    # Keep this at 1. The survey store is per-process, so a second instance
+    # would answer /detect for a survey it never ingested.
+    numInstances: 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      - key: WRECKOGNISE_DEBUG
+        value: "false"
+      # Set this to your deployed dashboard origin after the frontend is live.
+      - key: WRECKOGNISE_CORS_ORIGINS
+        sync: false
+      # Optional: lets Vercel/Netlify preview deploys through too.
+      - key: WRECKOGNISE_CORS_ORIGIN_REGEX
+        sync: false

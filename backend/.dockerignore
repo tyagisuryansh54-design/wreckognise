@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+tests/
+storage/uploads/*
+storage/processed/*
+storage/reports/*
+*.pt
+*.onnx

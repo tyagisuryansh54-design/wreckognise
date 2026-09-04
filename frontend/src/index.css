@@ -1,0 +1,195 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ------------------------------------------------------------------ */
+/* Design tokens                                                       */
+/* ------------------------------------------------------------------ */
+:root {
+  --cream: #f9f6f0;
+  --sand: #efece6;
+  --navy: #0a192f;
+  --teal: #1e3a3a;
+  --azure: #0077b6;
+  --aqua: #00b4d8;
+  --coral: #ff6b6b;
+  --sunset: #ff7a00;
+  --amber: #ffb703;
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-cream font-sans text-navy antialiased;
+    /* A whisper of sand grain keeps the 60% surface from reading as flat white. */
+    background-image:
+      radial-gradient(circle at 12% 8%, rgba(0, 180, 216, 0.05) 0%, transparent 42%),
+      radial-gradient(circle at 88% 4%, rgba(0, 119, 182, 0.05) 0%, transparent 38%);
+    background-attachment: fixed;
+  }
+
+  ::selection {
+    @apply bg-aqua/30 text-navy;
+  }
+
+  /* Slim, on-brand scrollbars inside dark bento cards. */
+  .scroll-slim::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scroll-slim::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.04);
+  }
+  .scroll-slim::-webkit-scrollbar-thumb {
+    background: rgba(0, 180, 216, 0.34);
+    border-radius: 999px;
+  }
+  .scroll-slim::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 180, 216, 0.6);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--aqua);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+@layer components {
+  /* --- Bento primitives ------------------------------------------- */
+  .bento {
+    @apply relative overflow-hidden rounded-bento shadow-bento transition-all duration-300;
+  }
+  .bento-light {
+    @apply bento border border-shell/70 bg-white/70 backdrop-blur-sm;
+  }
+  .bento-dark {
+    @apply bento bg-navy text-cream shadow-inset-line;
+  }
+  .bento-teal {
+    @apply bento bg-teal text-cream shadow-inset-line;
+  }
+  .bento:hover {
+    @apply shadow-bento-lift;
+  }
+
+  /* --- Typography ------------------------------------------------- */
+  .label {
+    @apply font-mono text-2xs font-medium uppercase tracking-label;
+  }
+  .stat {
+    @apply font-mono text-2xl font-semibold tabular-nums md:text-3xl;
+  }
+
+  /* --- Buttons ---------------------------------------------------- */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5
+           font-mono text-xs font-semibold uppercase tracking-label
+           transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-45;
+  }
+  .btn-primary {
+    @apply btn bg-azure text-white hover:bg-aqua hover:text-navy
+           hover:shadow-[0_10px_28px_-8px_rgba(0,180,216,0.7)];
+  }
+  .btn-dark {
+    @apply btn bg-navy text-cream hover:bg-navy-soft;
+  }
+  .btn-ghost {
+    @apply btn border border-navy/18 bg-transparent text-navy hover:border-azure hover:text-azure;
+  }
+  .btn-ghost-light {
+    @apply btn border border-cream/25 bg-transparent text-cream hover:border-aqua hover:text-aqua;
+  }
+  .btn-alert {
+    @apply btn bg-coral text-white hover:bg-sunset;
+  }
+
+  /* --- Badges ----------------------------------------------------- */
+  .badge {
+    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1
+           font-mono text-2xs font-semibold uppercase tracking-label;
+  }
+
+  /* --- Sonar chrome ----------------------------------------------- */
+  .grid-overlay {
+    background-image:
+      linear-gradient(rgba(0, 180, 216, 0.11) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 180, 216, 0.11) 1px, transparent 1px);
+    background-size: 34px 34px;
+  }
+
+  .skeleton {
+    background: linear-gradient(
+      90deg,
+      rgba(10, 25, 47, 0.05) 25%,
+      rgba(10, 25, 47, 0.11) 37%,
+      rgba(10, 25, 47, 0.05) 63%
+    );
+    background-size: 600px 100%;
+    @apply animate-shimmer rounded;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Leaflet: repaint the default chrome in Wreckognise colours          */
+/* ------------------------------------------------------------------ */
+.leaflet-container {
+  background: #08111f;
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
+}
+
+.leaflet-control-zoom a {
+  background: #0a192f !important;
+  color: #f9f6f0 !important;
+  border-color: rgba(249, 246, 240, 0.16) !important;
+}
+.leaflet-control-zoom a:hover {
+  background: #0077b6 !important;
+}
+
+.leaflet-control-attribution {
+  background: rgba(10, 25, 47, 0.82) !important;
+  color: rgba(249, 246, 240, 0.55) !important;
+  font-size: 10px !important;
+}
+.leaflet-control-attribution a {
+  color: #00b4d8 !important;
+}
+
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: #0a192f;
+  color: #f9f6f0;
+  border-radius: 14px;
+  box-shadow: 0 18px 44px -14px rgba(0, 0, 0, 0.7);
+}
+.leaflet-popup-content {
+  margin: 14px 16px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.leaflet-popup-close-button {
+  color: rgba(249, 246, 240, 0.5) !important;
+}
+
+/* Contact pins are rendered as divIcons; strip Leaflet's default chrome. */
+.contact-pin {
+  background: transparent;
+  border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

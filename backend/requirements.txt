@@ -1,0 +1,21 @@
+# --- Wreckognise backend :: Python 3.11 ---
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+pydantic==2.10.4
+pydantic-settings==2.7.0
+
+# Sonar ingestion
+pyxtf==1.4.2
+
+# Imaging / preprocessing
+opencv-python-headless==4.10.0.84
+numpy==1.26.4
+Pillow==11.0.0
+
+# AI detection engine (optional at runtime -- the service falls back to the
+# deterministic simulation pipeline when ultralytics/torch are not installed)
+# ultralytics==8.3.55
+
+# Reporting
+reportlab==4.2.5
