@@ -91,11 +91,23 @@ export default function ContactRegister({ detections, selected, onSelect, summar
           <div className="h-48">
             <EmptyState
               icon={<IconAlert className="h-5 w-5" />}
-              title={detections.length ? 'Nothing matches this filter' : 'Register is empty'}
+              title={
+                detections.length
+                  ? 'Nothing matches this filter'
+                  : summary
+                    ? 'No contacts cleared the threshold'
+                    : 'Register is empty'
+              }
               body={
                 detections.length
                   ? 'Switch back to “All” to see every contact on this line.'
-                  : 'Run the detector to populate the contact register.'
+                  : summary
+                    // The detector ran and returned nothing -- almost always a
+                    // confidence threshold set above what this line supports.
+                    // Saying "run the detector" here sends the operator to a
+                    // button they already pressed.
+                    ? 'The detector ran but no anomaly beat the confidence threshold. Lower it in the inference panel and run detection again.'
+                    : 'Run the detector to populate the contact register.'
               }
             />
           </div>
