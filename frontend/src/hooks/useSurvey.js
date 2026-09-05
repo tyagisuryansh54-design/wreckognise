@@ -21,7 +21,13 @@ export function useSurvey() {
   const [progress, setProgress] = useState(0)
 
   useEffect(() => {
-    api.health().then(setHealth).catch(() => setHealth(null))
+    // Only a well-formed health payload counts as "online". Anything else --
+    // an HTML rewrite from a static host, a proxy error page -- must read as
+    // offline, or the badge cheerfully lies about a backend that isn't there.
+    api
+      .health()
+      .then((body) => setHealth(body && typeof body === 'object' && body.status ? body : null))
+      .catch(() => setHealth(null))
   }, [])
 
   const run = useCallback(async (stage, work) => {

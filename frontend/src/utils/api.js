@@ -43,8 +43,27 @@ async function request(path, options = {}) {
   }
 
   if (response.status === 204) return null
+
   const contentType = response.headers.get('content-type') ?? ''
-  return contentType.includes('application/json') ? response.json() : response.text()
+  if (contentType.includes('application/json')) return response.json()
+
+  // A 200 that is not JSON almost always means the request never reached the
+  // API. Static hosts rewrite unmatched paths to index.html, so /api/* comes
+  // back as the dashboard's own HTML with a success status -- which would sail
+  // past the `response.ok` check above and fail later, somewhere confusing.
+  if (contentType.includes('text/html')) {
+    throw new ApiError(
+      BASE
+        ? `Expected JSON from ${BASE}${path} but received HTML. That host is not serving the Wreckognise API -- check VITE_API_BASE.`
+        : `Request to ${path} returned the dashboard's own HTML, not API data. ` +
+          'VITE_API_BASE is unset, so the call went to this site instead of the backend. ' +
+          'Set it to your backend URL and redeploy.',
+      response.status,
+      null,
+    )
+  }
+
+  return response.text()
 }
 
 export const api = {
