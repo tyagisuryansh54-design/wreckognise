@@ -9,7 +9,7 @@ import {
   IconX,
 } from './Icons'
 import { api } from '../utils/api'
-import { classLabel, downloadText, severityStyle, toDMS } from '../utils/format'
+import { REVIEW_LABELS, classLabel, downloadText, severityStyle, toDMS } from '../utils/format'
 
 const DISPOSITIONS = [
   { status: 'flagged', label: 'Flag Anomaly', icon: IconFlag, className: 'btn-alert' },
@@ -28,12 +28,13 @@ const DISPOSITIONS = [
   { status: 'dismissed', label: 'Dismiss', icon: IconX, className: 'btn-ghost-light' },
 ]
 
-/** Disposition chip shown beside the severity badge. */
+/** Disposition chip shown beside the severity badge. Labels come from
+    REVIEW_LABELS so the chip and the register never drift apart. */
 const REVIEW_CHIP = {
-  flagged: { label: 'Flagged', className: 'bg-coral/20 text-coral border border-coral/35' },
-  under_review: { label: 'In Review', className: 'bg-amber/20 text-amber border border-amber/35' },
-  confirmed: { label: 'Confirmed', className: 'bg-aqua/20 text-aqua border border-aqua/35' },
-  dismissed: { label: 'Dismissed', className: 'bg-cream/10 text-cream/45 border border-cream/20' },
+  flagged: 'bg-coral/20 text-coral border border-coral/35',
+  under_review: 'bg-amber/20 text-amber border border-amber/35',
+  confirmed: 'bg-aqua/20 text-aqua border border-aqua/35',
+  dismissed: 'bg-cream/10 text-cream/45 border border-cream/20',
 }
 
 const FORMATS = [
@@ -113,8 +114,8 @@ export default function ActionBox({
               <div className="flex shrink-0 flex-col items-end gap-1.5">
                 <Badge className={style.badgeDark}>{style.label}</Badge>
                 {REVIEW_CHIP[selected.review_status] && (
-                  <Badge className={REVIEW_CHIP[selected.review_status].className}>
-                    {REVIEW_CHIP[selected.review_status].label}
+                  <Badge className={REVIEW_CHIP[selected.review_status]}>
+                    {REVIEW_LABELS[selected.review_status]}
                   </Badge>
                 )}
               </div>
