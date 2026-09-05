@@ -3,6 +3,14 @@ import { Badge, BentoCard, CardHeader, EmptyState, Meter } from './Primitives'
 import { IconAlert, IconTarget } from './Icons'
 import { REVIEW_LABELS, classLabel, severityStyle } from '../utils/format'
 
+/** Disposition colours. Pending is absent on purpose -- it renders nothing. */
+const REVIEW_TONES = {
+  flagged: 'text-coral',
+  under_review: 'text-amber',
+  confirmed: 'text-aqua',
+  dismissed: 'text-navy/35',
+}
+
 const FILTERS = [
   { id: 'all', label: 'All' },
   { id: 'critical', label: 'Critical' },
@@ -155,11 +163,20 @@ export default function ContactRegister({ detections, selected, onSelect, summar
                     >
                       {(d.confidence * 100).toFixed(1)}%
                     </p>
-                    <p
-                      className={`font-mono text-2xs ${active ? 'text-cream/40' : 'text-navy/40'}`}
-                    >
-                      {REVIEW_LABELS[d.review_status]}
-                    </p>
+                    {/* Every contact starts pending, so printing "Pending" on
+                        every row is noise that buries the rows an operator has
+                        actually dealt with. Show a disposition only once there
+                        is one, and colour it by what it means. */}
+                    {d.review_status !== 'pending' && (
+                      <p
+                        className={`font-mono text-2xs font-semibold ${
+                          REVIEW_TONES[d.review_status] ??
+                          (active ? 'text-cream/40' : 'text-navy/40')
+                        }`}
+                      >
+                        {REVIEW_LABELS[d.review_status]}
+                      </p>
+                    )}
                   </div>
                 </div>
 

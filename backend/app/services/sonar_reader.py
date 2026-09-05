@@ -368,11 +368,21 @@ def _plant_targets(
     return planted
 
 
+# Demo survey origin: open water in the Gulf of Mannar, ~25 km off the
+# Thoothukudi coast. Verified against GEBCO 2020 bathymetry -- every point in a
+# +/-0.03 deg box around it is sea, 27-169 m deep, which brackets the towfish
+# depth this model assumes. The previous origin (8.9260, 78.1560) sat at +10 m
+# elevation: contacts were being plotted in a field.
+DEMO_ORIGIN_LAT = 8.60
+DEMO_ORIGIN_LON = 78.40
+DEMO_ORIGIN_JITTER_DEG = 0.012  # ~1.3 km, well inside the verified water box
+
+
 def _synthetic_track(pings: int, seed: int) -> list[PingTelemetry]:
     """A survey line off the Gulf of Mannar with realistic drift, yaw and heave."""
     rng = np.random.default_rng(seed + 7)
-    lat = 8.9260 + float(rng.normal(0, 0.02))
-    lon = 78.1560 + float(rng.normal(0, 0.02))
+    lat = DEMO_ORIGIN_LAT + float(rng.normal(0, DEMO_ORIGIN_JITTER_DEG))
+    lon = DEMO_ORIGIN_LON + float(rng.normal(0, DEMO_ORIGIN_JITTER_DEG))
     base_heading = float(rng.uniform(0, 360))
     speed_knots = float(rng.uniform(3.4, 4.6))
     slant = float(rng.choice([50.0, 75.0, 100.0, 150.0]))
