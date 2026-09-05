@@ -66,6 +66,20 @@ async function request(path, options = {}) {
   return response.text()
 }
 
+/**
+ * Resolve a backend-relative asset path (rendered waterfalls, annotated
+ * frames) into something the browser can actually fetch.
+ *
+ * The API returns root-relative paths like `/static/processed/x.png`. In
+ * development Vite proxies those to the backend, but in production the browser
+ * resolves them against the dashboard's own origin -- where a static host's
+ * catch-all rewrite answers with index.html, and the <img> renders broken.
+ */
+export const assetUrl = (path) => {
+  if (!path) return path
+  return /^https?:\/\//i.test(path) ? path : `${BASE}${path}`
+}
+
 export const api = {
   health: () => request('/api/health'),
 

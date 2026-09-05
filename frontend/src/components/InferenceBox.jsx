@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { BentoCard, CardHeader, EmptyState, Meter, Row, Spinner, Stat } from './Primitives'
 import { IconChip, IconScan, IconTarget } from './Icons'
-import { api } from '../utils/api'
+import { api, assetUrl } from '../utils/api'
 import { classLabel, compass, severityStyle, toDMS } from '../utils/format'
 
 /**
@@ -139,7 +139,7 @@ export default function InferenceBox({
             className="relative overflow-hidden rounded-2xl ring-1 ring-cream/15"
           >
             <img
-              src={inference.annotated_png}
+              src={assetUrl(inference.annotated_png)}
               alt="Sonar waterfall with YOLOv8 detection boxes"
               className="block h-64 w-full object-cover md:h-72"
               draggable="false"

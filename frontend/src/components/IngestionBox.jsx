@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react'
 import { BentoCard, CardHeader, EmptyState, Meter, Row, Spinner, Stat } from './Primitives'
 import { IconLayers, IconUpload, IconWave } from './Icons'
 import { bytes } from '../utils/format'
+import { assetUrl } from '../utils/api'
 
 const DENOISE_OPTIONS = [
   { id: 'nlm', label: 'Non-Local Means', hint: 'Best speckle suppression' },
@@ -179,7 +180,7 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, uploadRef
             >
               {/* Filtered (right of the handle) sits underneath. */}
               <img
-                src={ingest.filtered_waterfall_png}
+                src={assetUrl(ingest.filtered_waterfall_png)}
                 alt="OpenCV-denoised sonar waterfall"
                 className="absolute inset-0 h-full w-full object-cover"
                 draggable="false"
@@ -190,7 +191,7 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, uploadRef
                 style={{ clipPath: `inset(0 ${100 - split}% 0 0)` }}
               >
                 <img
-                  src={ingest.raw_waterfall_png}
+                  src={assetUrl(ingest.raw_waterfall_png)}
                   alt="Raw sonar waterfall before filtering"
                   className="h-full w-full object-cover"
                   draggable="false"
