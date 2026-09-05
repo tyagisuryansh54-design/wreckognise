@@ -3,14 +3,15 @@ import {
   IconChip,
   IconReport,
   IconSatellite,
-  IconShield,
   IconSonar,
   IconTarget,
   IconUpload,
 } from './Icons'
 
+// Each of these must be something the pipeline actually demonstrates: the
+// error budget in georeference.py backs the accuracy claim, and every contact
+// is solved against its own ping's navigation record.
 const TRUST_SIGNALS = [
-  { icon: IconShield, label: 'SIH 2026 Finalist', detail: 'Smart India Hackathon' },
   { icon: IconSatellite, label: 'Sub-Meter GPS Accuracy', detail: 'RTK-corrected WGS-84' },
   { icon: IconChip, label: 'High-Precision Telemetry Sync', detail: 'Per-ping nav binding' },
 ]
@@ -118,7 +119,7 @@ export default function Hero({ onExplore, onUpload, onReport, stage, busy, healt
         </div>
 
         {/* --- trust signals --- */}
-        <ul className="mt-11 grid gap-3 border-t border-cream/10 pt-7 sm:grid-cols-3">
+        <ul className="mt-11 grid gap-3 border-t border-cream/10 pt-7 sm:grid-cols-2">
           {TRUST_SIGNALS.map(({ icon: Icon, label, detail }) => (
             <li key={label} className="flex items-start gap-3">
               <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-cream/6 text-aqua ring-1 ring-cream/10">
