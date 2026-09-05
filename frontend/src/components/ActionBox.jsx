@@ -11,6 +11,31 @@ import {
 import { api } from '../utils/api'
 import { classLabel, downloadText, severityStyle, toDMS } from '../utils/format'
 
+const DISPOSITIONS = [
+  { status: 'flagged', label: 'Flag Anomaly', icon: IconFlag, className: 'btn-alert' },
+  {
+    status: 'under_review',
+    label: 'Human Review',
+    icon: IconEye,
+    className: 'btn !bg-amber !text-navy hover:!bg-sunset hover:!text-white',
+  },
+  {
+    status: 'confirmed',
+    label: 'Confirm',
+    icon: IconCheck,
+    className: 'btn !bg-aqua !text-navy hover:!bg-azure hover:!text-white',
+  },
+  { status: 'dismissed', label: 'Dismiss', icon: IconX, className: 'btn-ghost-light' },
+]
+
+/** Disposition chip shown beside the severity badge. */
+const REVIEW_CHIP = {
+  flagged: { label: 'Flagged', className: 'bg-coral/20 text-coral border border-coral/35' },
+  under_review: { label: 'In Review', className: 'bg-amber/20 text-amber border border-amber/35' },
+  confirmed: { label: 'Confirmed', className: 'bg-aqua/20 text-aqua border border-aqua/35' },
+  dismissed: { label: 'Dismissed', className: 'bg-cream/10 text-cream/45 border border-cream/20' },
+}
+
 const FORMATS = [
   { id: 'markdown', label: 'Markdown', ext: 'md', mime: 'text/markdown' },
   { id: 'json', label: 'JSON', ext: 'json', mime: 'application/json' },
@@ -85,7 +110,14 @@ export default function ActionBox({
                 </h3>
                 <p className="font-mono text-2xs text-cream/40">{selected.detection_id}</p>
               </div>
-              <Badge className={`shrink-0 ${style.badgeDark}`}>{style.label}</Badge>
+              <div className="flex shrink-0 flex-col items-end gap-1.5">
+                <Badge className={style.badgeDark}>{style.label}</Badge>
+                {REVIEW_CHIP[selected.review_status] && (
+                  <Badge className={REVIEW_CHIP[selected.review_status].className}>
+                    {REVIEW_CHIP[selected.review_status].label}
+                  </Badge>
+                )}
+              </div>
             </div>
 
             <div className="mt-3 rounded-lg bg-navy/50 px-3 py-2 font-mono text-2xs leading-relaxed text-cream/60">
@@ -118,31 +150,28 @@ export default function ActionBox({
               />
             </label>
 
+            {/* The disposition buttons write to a contact that is rendered in
+                a different bento box, so without an active state here a click
+                changes nothing the operator can see and reads as a dead
+                button. Each one latches when it is the current disposition. */}
             <div className="mt-3 grid grid-cols-2 gap-2">
-              <button type="button" onClick={() => act('flagged')} className="btn-alert !px-3 !py-2">
-                <IconFlag className="h-3.5 w-3.5" />
-                Flag Anomaly
-              </button>
-              <button
-                type="button"
-                onClick={() => act('under_review')}
-                className="btn !bg-amber !px-3 !py-2 !text-navy hover:!bg-sunset hover:!text-white"
-              >
-                <IconEye className="h-3.5 w-3.5" />
-                Human Review
-              </button>
-              <button
-                type="button"
-                onClick={() => act('confirmed')}
-                className="btn !bg-aqua !px-3 !py-2 !text-navy hover:!bg-azure hover:!text-white"
-              >
-                <IconCheck className="h-3.5 w-3.5" />
-                Confirm
-              </button>
-              <button type="button" onClick={() => act('dismissed')} className="btn-ghost-light !px-3 !py-2">
-                <IconX className="h-3.5 w-3.5" />
-                Dismiss
-              </button>
+              {DISPOSITIONS.map(({ status, label, icon: Icon, className }) => {
+                const isCurrent = selected.review_status === status
+                return (
+                  <button
+                    key={status}
+                    type="button"
+                    onClick={() => act(status)}
+                    aria-pressed={isCurrent}
+                    className={`${className} !px-3 !py-2 ${
+                      isCurrent ? 'ring-2 ring-cream/70 ring-offset-2 ring-offset-navy' : ''
+                    }`}
+                  >
+                    {isCurrent ? <IconCheck className="h-3.5 w-3.5" /> : <Icon className="h-3.5 w-3.5" />}
+                    {label}
+                  </button>
+                )
+              })}
             </div>
           </>
         )}
