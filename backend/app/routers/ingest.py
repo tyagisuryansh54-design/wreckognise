@@ -16,7 +16,7 @@ from ..models.schemas import (
     SurveyStatus,
 )
 from ..services.preprocessing import preprocess, render_waterfall
-from ..services.sonar_reader import read_sonar_file
+from ..services.sonar_reader import list_samples, read_image_sample, read_sonar_file
 from ..services.store import store
 
 router = APIRouter(prefix="/api/ingest", tags=["ingestion"])
@@ -91,6 +91,21 @@ def _process(
         raise HTTPException(status_code=422, detail=f"Could not decode sonar file: {exc}") from exc
 
     survey.metadata.filename = display_name
+    return _finalise(survey, denoise_method, apply_tvg, apply_clahe)
+
+
+def _finalise(
+    survey,
+    denoise_method: str,
+    apply_tvg: bool,
+    apply_clahe: bool,
+) -> IngestResponse:
+    """Denoise, render and register a decoded survey.
+
+    Shared by every ingestion route so upload, demo and sample all produce an
+    identical response shape.
+    """
+    survey_id = survey.survey_id
 
     filtered, stats = preprocess(
         survey.waterfall,
@@ -121,6 +136,34 @@ def _process(
             f"{stats.method.upper()} denoise recovered {stats.snr_gain_db:+.2f} dB SNR."
         ),
     )
+
+
+@router.get("/samples")
+async def get_samples() -> dict:
+    """Bundled real sonar images available to run through the pipeline."""
+    return {"samples": list_samples()}
+
+
+@router.post("/sample", response_model=IngestResponse)
+async def load_sample(
+    filename: str = Form(...),
+    denoise_method: str = Form(default="nlm"),
+) -> IngestResponse:
+    """Ingest a bundled REAL sonar image from the detector's held-out split.
+
+    The demo line is modelled; this is genuine survey imagery the model has
+    never seen, so it shows the trained detector doing the job it was measured
+    on rather than reacting to a synthetic swath.
+    """
+    survey_id = f"SVY-{uuid.uuid4().hex[:10].upper()}"
+    try:
+        survey = read_image_sample(filename, survey_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    return _finalise(survey, denoise_method, apply_tvg=False, apply_clahe=True)
 
 
 @router.get("/{survey_id}/metadata", response_model=SonarMetadata)

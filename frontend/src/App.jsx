@@ -29,6 +29,8 @@ export default function App() {
     error,
     clearError,
     loadDemo,
+    loadSample,
+    samples,
     uploadFile,
     detect,
     generateReport,
@@ -100,6 +102,8 @@ export default function App() {
               uploadRef={uploadRef}
               onUpload={uploadFile}
               onDemo={loadDemo}
+              onSample={loadSample}
+              samples={samples}
             />
           </div>
 

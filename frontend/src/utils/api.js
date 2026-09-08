@@ -100,6 +100,15 @@ export const api = {
     return request('/api/ingest/upload', { method: 'POST', body: form })
   },
 
+  samples: () => request('/api/ingest/samples'),
+
+  loadSample: (filename, denoiseMethod = 'nlm') => {
+    const form = new FormData()
+    form.append('filename', filename)
+    form.append('denoise_method', denoiseMethod)
+    return request('/api/ingest/sample', { method: 'POST', body: form })
+  },
+
   telemetry: (surveyId, limit = 400) =>
     request(`/api/ingest/${surveyId}/telemetry?limit=${limit}`),
 

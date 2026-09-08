@@ -20,6 +20,8 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 COPY app ./app
 # Trained detector weights + the validation figures measured alongside them.
 COPY models ./models
+# Bundled real sonar images for the dashboard's held-out sample button.
+COPY samples ./samples
 RUN mkdir -p storage/uploads storage/processed storage/reports
 
 EXPOSE 8000

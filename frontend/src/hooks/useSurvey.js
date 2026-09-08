@@ -15,6 +15,7 @@ export function useSurvey() {
   const [telemetry, setTelemetry] = useState([])
   const [report, setReport] = useState(null)
 
+  const [samples, setSamples] = useState([])
   const [selectedId, setSelectedId] = useState(null)
   const [busy, setBusy] = useState(null) // 'ingest' | 'detect' | 'report' | null
   const [error, setError] = useState(null)
@@ -28,6 +29,11 @@ export function useSurvey() {
       .health()
       .then((body) => setHealth(body && typeof body === 'object' && body.status ? body : null))
       .catch(() => setHealth(null))
+
+    api
+      .samples()
+      .then((r) => setSamples(Array.isArray(r?.samples) ? r.samples : []))
+      .catch(() => setSamples([]))
   }, [])
 
   const run = useCallback(async (stage, work) => {
@@ -59,6 +65,19 @@ export function useSurvey() {
     (denoiseMethod = 'nlm') =>
       run('ingest', async () => {
         const result = await api.loadDemo(denoiseMethod)
+        setIngest(result)
+        resetDownstream()
+        setTelemetry(await api.telemetry(result.survey_id))
+        return result
+      }),
+    [run, resetDownstream],
+  )
+
+  /** Run a bundled REAL sonar image -- imagery the detector never trained on. */
+  const loadSample = useCallback(
+    (filename, denoiseMethod = 'nlm') =>
+      run('ingest', async () => {
+        const result = await api.loadSample(filename, denoiseMethod)
         setIngest(result)
         resetDownstream()
         setTelemetry(await api.telemetry(result.survey_id))
@@ -172,6 +191,8 @@ export function useSurvey() {
     error,
     clearError: () => setError(null),
     loadDemo,
+    loadSample,
+    samples,
     uploadFile,
     detect,
     generateReport,

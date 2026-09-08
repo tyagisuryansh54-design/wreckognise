@@ -76,7 +76,7 @@ class ChannelInfo(BaseModel):
 class SonarMetadata(BaseModel):
     survey_id: str
     filename: str
-    file_format: Literal["xtf", "jsf", "segy", "synthetic"]
+    file_format: Literal["xtf", "jsf", "segy", "synthetic", "image"]
     file_size_bytes: int
     ping_count: int
     channels: list[ChannelInfo]

@@ -17,8 +17,9 @@ const DENOISE_OPTIONS = [
  * the denoised swath in the same pixels so the filter's effect is visible
  * rather than merely asserted in a metrics table.
  */
-export default function IngestionBox({ ingest, busy, onUpload, onDemo, uploadRef }) {
+export default function IngestionBox({ ingest, busy, onUpload, onDemo, onSample, samples = [], uploadRef }) {
   const [method, setMethod] = useState('nlm')
+  const [sampleIndex, setSampleIndex] = useState(0)
   const [split, setSplit] = useState(52)
   const [dragging, setDragging] = useState(false)
   const frameRef = useRef(null)
@@ -116,9 +117,24 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, uploadRef
               onClick={() => onDemo(method)}
               disabled={busy === 'ingest'}
               className="btn-ghost !px-4 !py-2"
+              title="A modelled swath — synthetic, for exercising the full pipeline"
             >
               Demo Line
             </button>
+            {samples.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  onSample(samples[sampleIndex % samples.length].file, method)
+                  setSampleIndex((i) => i + 1)
+                }}
+                disabled={busy === 'ingest'}
+                className="btn !bg-aqua !px-4 !py-2 !text-navy hover:!bg-azure hover:!text-white"
+                title={samples[sampleIndex % samples.length].description}
+              >
+                Real Sonar
+              </button>
+            )}
           </div>
         </div>
 
@@ -174,6 +190,18 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, uploadRef
           </div>
         ) : (
           <>
+            {meta?.file_format === 'image' && (
+              /* A bare sonar image carries no navigation. Coordinates derived
+                 from a simulated track must never read as survey-grade. */
+              <div className="mb-3 rounded-xl border border-aqua/40 bg-aqua/10 px-4 py-2.5">
+                <p className="label text-azure">Real Sonar · Held-Out Sample</p>
+                <p className="mt-1 font-serif text-xs leading-relaxed text-navy/70">
+                  Genuine survey imagery the detector never saw during training.
+                  The image carries no navigation, so the track and coordinates
+                  are simulated for illustration — the detections are real.
+                </p>
+              </div>
+            )}
             <div
               ref={frameRef}
               className="relative h-64 select-none overflow-hidden rounded-2xl bg-navy ring-1 ring-navy/15 md:h-72"

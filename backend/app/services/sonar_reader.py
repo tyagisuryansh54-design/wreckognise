@@ -14,6 +14,7 @@ and the detector are tuned against.
 from __future__ import annotations
 
 import hashlib
+import logging
 import math
 import struct
 from dataclasses import dataclass, field
@@ -24,6 +25,8 @@ import numpy as np
 
 from ..models.schemas import ChannelInfo, GeoBounds, PingTelemetry, SonarMetadata
 from ..utils.geodesy import destination_point
+
+logger = logging.getLogger("wreckognise.sonar")
 
 try:  # pragma: no cover - optional dependency
     import pyxtf
@@ -81,22 +84,36 @@ class SonarSurvey:
 # Public entry point
 # --------------------------------------------------------------------------- #
 def read_sonar_file(path: Path, survey_id: str) -> SonarSurvey:
-    """Decode a sonar file into a `SonarSurvey`, whatever the format."""
+    """Decode a sonar file into a `SonarSurvey`, whatever the format.
+
+    The `reason` strings below are operator-facing: they appear in the
+    dashboard's Parser field and in exported reports. They must stay short and
+    must never carry a server filesystem path or a raw exception -- the full
+    detail is logged instead.
+    """
     suffix = path.suffix.lower()
+
+    if not path.is_file():
+        return _synthesise(path, survey_id, reason="modelled swath, no capture file")
 
     if suffix == ".xtf" and PYXTF_AVAILABLE:
         try:
             return _read_xtf(path, survey_id)
         except Exception as exc:  # noqa: BLE001 - degrade, never crash the upload
-            return _synthesise(path, survey_id, reason=f"xtf decode failed: {exc}")
+            logger.warning("XTF decode failed for %s: %s", path.name, exc)
+            return _synthesise(path, survey_id, reason="XTF undecodable, modelled swath")
 
     if suffix == ".jsf":
         try:
             return _read_jsf(path, survey_id)
         except Exception as exc:  # noqa: BLE001
-            return _synthesise(path, survey_id, reason=f"jsf decode failed: {exc}")
+            logger.warning("JSF decode failed for %s: %s", path.name, exc)
+            return _synthesise(path, survey_id, reason="JSF undecodable, modelled swath")
 
-    return _synthesise(path, survey_id, reason=f"no native decoder for '{suffix}'")
+    if suffix == ".xtf" and not PYXTF_AVAILABLE:
+        return _synthesise(path, survey_id, reason="pyxtf not installed, modelled swath")
+
+    return _synthesise(path, survey_id, reason=f"no decoder for {suffix}, modelled swath")
 
 
 # --------------------------------------------------------------------------- #
@@ -481,3 +498,54 @@ def _build_metadata(
         bounds=GeoBounds(north=max(lats), south=min(lats), east=max(lons), west=min(lons)),
         parser=parser,
     )
+
+# --------------------------------------------------------------------------- #
+# Real sonar image samples
+# --------------------------------------------------------------------------- #
+SAMPLES_DIR = Path(__file__).resolve().parent.parent.parent / "samples"
+
+
+def list_samples() -> list[dict]:
+    """Bundled real sonar images, from the detector's held-out split."""
+    manifest = SAMPLES_DIR / "manifest.json"
+    if not manifest.is_file():
+        return []
+    try:
+        import json
+
+        return json.loads(manifest.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+
+
+def read_image_sample(filename: str, survey_id: str) -> SonarSurvey:
+    """Load a real sonar image as a survey the rest of the pipeline can process.
+
+    A bare sonar image carries no navigation, so a plausible track is attached
+    to keep georeferencing, the chart and reporting exercisable. The positions
+    that come out are therefore ILLUSTRATIVE, not survey-grade -- the metadata
+    says so explicitly, and the dashboard surfaces it, because a coordinate
+    derived from invented navigation must never be mistaken for a real fix.
+    """
+    import cv2
+
+    path = SAMPLES_DIR / Path(filename).name
+    if not path.is_file():
+        raise FileNotFoundError(f"no bundled sample named '{filename}'")
+
+    image = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
+    if image is None:
+        raise ValueError(f"could not decode sample '{filename}'")
+
+    pings = image.shape[0]
+    telemetry = _synthetic_track(pings, seed=_seed_of(path))
+    metadata = _build_metadata(
+        survey_id=survey_id,
+        path=path,
+        fmt="image",
+        telemetry=telemetry,
+        waterfall=image,
+        parser="real sonar image (SCTD) — navigation simulated",
+        frequency_khz=(455.0, 455.0),
+    )
+    return SonarSurvey(survey_id, metadata, telemetry, image)

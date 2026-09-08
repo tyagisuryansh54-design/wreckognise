@@ -1,0 +1,58 @@
+[
+  {
+    "file": "000163.jpg",
+    "description": "Wreck \u2014 large vessel, strong acoustic shadow",
+    "ground_truth": [
+      {
+        "label": "ship",
+        "cx": 0.506173,
+        "cy": 0.557344,
+        "w": 0.234568,
+        "h": 0.627767
+      }
+    ],
+    "source": "SCTD 1.0 held-out validation split (never used in training)"
+  },
+  {
+    "file": "000161.jpg",
+    "description": "Wreck \u2014 hull with debris field",
+    "ground_truth": [
+      {
+        "label": "ship",
+        "cx": 0.551136,
+        "cy": 0.516981,
+        "w": 0.215909,
+        "h": 0.630189
+      }
+    ],
+    "source": "SCTD 1.0 held-out validation split (never used in training)"
+  },
+  {
+    "file": "000077.jpg",
+    "description": "Downed aircraft \u2014 fuselage and wing return",
+    "ground_truth": [
+      {
+        "label": "aircraft",
+        "cx": 0.729951,
+        "cy": 0.40604,
+        "w": 0.510638,
+        "h": 0.39821
+      }
+    ],
+    "source": "SCTD 1.0 held-out validation split (never used in training)"
+  },
+  {
+    "file": "000400.jpg",
+    "description": "Wreck \u2014 two contacts in one frame",
+    "ground_truth": [
+      {
+        "label": "ship",
+        "cx": 0.486721,
+        "cy": 0.62062,
+        "w": 0.213626,
+        "h": 0.756065
+      }
+    ],
+    "source": "SCTD 1.0 held-out validation split (never used in training)"
+  }
+]
