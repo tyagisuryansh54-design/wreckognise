@@ -7,4 +7,5 @@ storage/uploads/*
 storage/processed/*
 storage/reports/*
 *.pt
-*.onnx
+# NOT *.onnx -- models/yolov8n-sonar.onnx must reach the image, or the API
+# silently falls back to the unvalidated CV engine.

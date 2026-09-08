@@ -28,8 +28,10 @@ backend/storage/reports/*
 .DS_Store
 Thumbs.db
 
-# Trained model weights are large binaries; metrics.json IS tracked so the
-# reported accuracy is reviewable in git.
+# The ONNX weights (~12 MB) ARE tracked: the deployed API needs them at build
+# time, and committing keeps the deploy reproducible. metrics.json is tracked
+# too, so the accuracy the dashboard reports is reviewable in git.
+# The .pt checkpoint stays out -- it is training-only and twice the size.
 backend/models/*.pt
-backend/models/*.onnx
+!backend/models/yolov8n-sonar.onnx
 !backend/models/metrics.json

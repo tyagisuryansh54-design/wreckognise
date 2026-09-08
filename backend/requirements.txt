@@ -13,9 +13,10 @@ opencv-python-headless==4.10.0.84
 numpy==1.26.4
 Pillow==11.0.0
 
-# AI detection engine (optional at runtime -- the service falls back to the
-# deterministic simulation pipeline when ultralytics/torch are not installed)
-# ultralytics==8.3.55
+# AI detection engine. onnxruntime serves the trained YOLOv8 weights in
+# backend/models/. Torch is deliberately NOT a dependency: the deployed
+# instance has 512 MB RAM and onnxruntime needs a fraction of that.
+onnxruntime==1.20.1
 
 # Reporting
 reportlab==4.2.5

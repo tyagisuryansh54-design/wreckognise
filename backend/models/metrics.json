@@ -1,0 +1,17 @@
+{
+  "model_version": "1.0.0-sctd-c6c120c",
+  "map50": 0.8394,
+  "map50_95": 0.5432,
+  "precision": 0.9788,
+  "recall": 0.7002,
+  "f1": 0.8164,
+  "per_class_ap50": {
+    "aircraft": 0.9875,
+    "human": 0.5559,
+    "ship": 0.9748
+  },
+  "validated_on": "SCTD 1.0 held-out split (71 images / 71 boxes, 20% stratified)",
+  "trained_on": "SCTD 1.0 train split (286 images)",
+  "imgsz": 512,
+  "evaluated_at": "2026-09-08T09:26:36+00:00"
+}
