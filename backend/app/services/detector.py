@@ -40,7 +40,7 @@ from ..utils.geodesy import shadow_height
 from .georeference import bbox_dimensions_m, solve_bbox
 from .sonar_reader import SonarSurvey
 
-from . import onnx_detector
+from . import catalogue, onnx_detector
 
 try:  # pragma: no cover - optional heavyweight dependency
     from ultralytics import YOLO
@@ -79,27 +79,13 @@ MIN_CONTACT_AREA_PX = 40   # smallest resolvable contact
 MODEL_NAME = "YOLOv8n-SCTD"
 MODEL_VERSION = VALIDATION.get("model_version", "0.1.0-untrained")
 
-# The network was trained on SCTD's three classes. Anything it cannot name
-# becomes UNKNOWN rather than being guessed at from geometry.
-TRAINED_CLASS_MAP = {
-    "ship": AnomalyClass.SHIPWRECK,
-    "aircraft": AnomalyClass.AIRCRAFT,
-    "human": AnomalyClass.CASUALTY,
-}
 
 # Class decision table, applied to the geometry of each accepted proposal.
 # (label, severity) chosen from aspect ratio, absolute size and shadow strength.
-SEVERITY_BY_CLASS = {
-    AnomalyClass.SHIPWRECK: Severity.CRITICAL,
-    AnomalyClass.AIRCRAFT: Severity.CRITICAL,
-    AnomalyClass.CASUALTY: Severity.CRITICAL,
-    AnomalyClass.UXO: Severity.CRITICAL,
-    AnomalyClass.CONTAINER: Severity.HIGH,
-    AnomalyClass.DEBRIS_FIELD: Severity.HIGH,
-    AnomalyClass.PIPELINE: Severity.MEDIUM,
-    AnomalyClass.BOULDER: Severity.LOW,
-    AnomalyClass.UNKNOWN: Severity.MEDIUM,
-}
+# Class and severity both resolve through services/catalogue.py so the
+# taxonomy, its survey reference data and its severity live in one file.
+def _severity_for(label: AnomalyClass) -> Severity:
+    return catalogue.entry_for(label).severity
 
 
 def run_inference(
@@ -201,7 +187,7 @@ def _detect_trained(image: np.ndarray, conf_thr: float) -> list[dict]:
     nadir = image.shape[1] // 2
 
     for p in proposals:
-        p["label"] = TRAINED_CLASS_MAP.get(p.pop("raw_class", ""), AnomalyClass.UNKNOWN)
+        p["label"] = catalogue.resolve(p.pop("raw_class", ""))
         p["shadow_px"] = _measure_shadow(
             shadow_mask, p["x"], p["y"], p["w"], p["h"], nadir
         )
@@ -443,12 +429,18 @@ def _build_detection(survey: SonarSurvey, proposal: dict) -> Detection:
     backscatter = proposal.get("backscatter", 0.0)
     backscatter_db = round(20.0 * float(np.log10(max(backscatter, 1e-3) / 255.0)), 2)
 
+    entry = catalogue.entry_for(label)
     return Detection(
         detection_id=f"WRK-{uuid.uuid4().hex[:8].upper()}",
         survey_id=survey.survey_id,
         label=label,
         confidence=round(float(proposal["confidence"]), 4),
-        severity=SEVERITY_BY_CLASS.get(label, Severity.MEDIUM),
+        severity=_severity_for(label),
+        display_name=entry.display_name,
+        category=entry.category,
+        acoustic_signature=entry.acoustic_signature,
+        operational_note=entry.operational_note,
+        size_plausibility=catalogue.size_plausibility(label, length_m),
         bbox=bbox,
         geo=geo,
         length_m=length_m,

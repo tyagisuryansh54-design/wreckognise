@@ -13,11 +13,18 @@ from pydantic import BaseModel, Field
 # Enums
 # --------------------------------------------------------------------------- #
 class AnomalyClass(str, Enum):
+    """Seabed object taxonomy. See services/catalogue.py for survey reference data."""
+
     SHIPWRECK = "shipwreck"
     AIRCRAFT = "aircraft"            # trained class: downed aircraft
-    CASUALTY = "casualty"            # trained class: drowning victim
-    DEBRIS_FIELD = "debris_field"
+    # Trained class: person in water. Named for the search-and-rescue role
+    # rather than relabelled as equipment -- reporting a person as cargo would
+    # be a materially wrong result in the one case where it matters most.
+    SAR_CONTACT = "sar_contact"
     CONTAINER = "container"
+    GHOST_NET = "ghost_net"
+    ANCHOR_DEBRIS = "anchor_debris"
+    DEBRIS_FIELD = "debris_field"
     PIPELINE = "pipeline"
     BOULDER = "boulder"
     UXO = "uxo"                      # unexploded ordnance
@@ -176,6 +183,15 @@ class Detection(BaseModel):
     shadow_length_m: float
     aspect_ratio: float
     backscatter_db: float
+
+    # Survey reference data for the assigned class, and an independent check
+    # that the measured size agrees with it.
+    display_name: str = ""
+    category: str = ""
+    acoustic_signature: str = ""
+    operational_note: str = ""
+    size_plausibility: float = 0.0
+
     review_status: ReviewStatus = ReviewStatus.PENDING
     notes: str | None = None
     detected_at: datetime
@@ -258,6 +274,39 @@ class ReportResponse(BaseModel):
     download_url: str
     content: str
     stats: DetectionSummary
+
+
+class FindingRecord(BaseModel):
+    """One catalogued anomaly, appended to the server-side ledger on detection."""
+
+    finding_id: str
+    survey_id: str
+    source_file: str
+    detected_at: datetime
+
+    label: str
+    display_name: str
+    category: str
+    severity: Severity
+    confidence: float = Field(..., ge=0, le=1, description="Model probability")
+    size_plausibility: float = Field(
+        ..., ge=0, le=1, description="Agreement between measured size and catalogue"
+    )
+
+    latitude: float
+    longitude: float
+    horizontal_uncertainty_m: float
+    length_m: float
+    width_m: float
+    height_estimate_m: float
+    operational_note: str
+
+
+class FindingsResponse(BaseModel):
+    total: int
+    by_category: dict[str, int]
+    by_class: dict[str, int]
+    findings: list[FindingRecord]
 
 
 class HealthResponse(BaseModel):

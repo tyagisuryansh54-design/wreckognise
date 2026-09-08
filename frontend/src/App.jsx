@@ -7,6 +7,7 @@ import InferenceBox from './components/InferenceBox'
 import MapBox from './components/MapBox'
 import ContactRegister from './components/ContactRegister'
 import ActionBox from './components/ActionBox'
+import FindingsLedger from './components/FindingsLedger'
 import { ProgressBar } from './components/Primitives'
 import { IconAlert, IconX } from './components/Icons'
 
@@ -135,6 +136,10 @@ export default function App() {
               onSelect={setSelectedId}
               summary={inference?.summary}
             />
+          </div>
+
+          <div className="lg:col-span-12">
+            <FindingsLedger refreshKey={inference?.survey_id ?? null} />
           </div>
 
           <div className="lg:col-span-12">

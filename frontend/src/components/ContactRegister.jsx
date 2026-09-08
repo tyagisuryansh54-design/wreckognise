@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Badge, BentoCard, CardHeader, EmptyState, Meter } from './Primitives'
+import { BentoCard, CardHeader, EmptyState, Meter } from './Primitives'
 import { IconAlert, IconTarget } from './Icons'
 import { REVIEW_LABELS, classLabel, severityStyle } from '../utils/format'
 
@@ -38,8 +38,6 @@ export default function ContactRegister({ detections, selected, onSelect, summar
       )
   }, [detections, filter])
 
-  const criticalCount = detections.filter((d) => d.severity === 'critical').length
-
   return (
     <BentoCard tone="light" className="flex flex-col p-6">
       <CardHeader
@@ -51,15 +49,9 @@ export default function ContactRegister({ detections, selected, onSelect, summar
             : 'Run detection to populate the register'
         }
         action={
-          criticalCount > 0 ? (
-            <Badge className="shrink-0 bg-coral/15 text-coral ring-1 ring-coral/30" pulse>
-              {criticalCount} Critical
-            </Badge>
-          ) : (
-            <span className="hidden shrink-0 rounded-full bg-navy/5 p-2.5 text-azure sm:block">
-              <IconTarget className="h-5 w-5" />
-            </span>
-          )
+          <span className="hidden shrink-0 rounded-full bg-navy/5 p-2.5 text-azure sm:block">
+            <IconTarget className="h-5 w-5" />
+          </span>
         }
       />
 
