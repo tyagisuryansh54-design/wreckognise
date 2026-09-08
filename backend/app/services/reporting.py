@@ -217,19 +217,35 @@ def _markdown(
 
     if survey.inference_metrics is not None:
         m = survey.inference_metrics
-        mode = "simulation (no weights loaded)" if m.simulated else "native weights"
+        mode = (
+            "hand-tuned CV fallback — NOT a trained model"
+            if m.simulated
+            else f"trained weights ({m.weights})"
+        )
         lines += [
-            f"- **Model:** {m.model_name} v{m.model_version} on `{m.device}` — {mode}",
+            f"- **Engine:** {m.model_name} v{m.model_version} on `{m.device}` — {mode}",
             f"- **Input:** {m.input_resolution}, {m.tiles_processed} tiles",
             f"- **Latency:** {m.total_ms:.1f} ms total "
             f"({m.preprocess_ms:.1f} pre / {m.inference_ms:.1f} infer / {m.nms_ms:.1f} NMS) "
             f"= {m.fps:.1f} FPS",
             f"- **Candidates:** {m.raw_candidates} raw → {m.kept_after_nms} after NMS "
             f"(conf ≥ {m.confidence_threshold}, IoU ≤ {m.iou_threshold})",
-            f"- **Benchmark:** mAP@50 {m.map50:.3f} · mAP@50-95 {m.map50_95:.3f} · "
-            f"P {m.precision:.3f} · R {m.recall:.3f}",
-            "",
         ]
+
+        # Never print an accuracy figure the engine cannot substantiate.
+        if m.map50 is not None:
+            lines.append(
+                f"- **Validation:** mAP@50 {m.map50:.3f} · mAP@50-95 {m.map50_95:.3f} · "
+                f"P {m.precision:.3f} · R {m.recall:.3f}"
+                + (f" (measured on {m.validated_on})" if m.validated_on else "")
+            )
+        else:
+            lines.append(
+                "- **Validation:** none. This engine has no measured detection "
+                "accuracy; contacts below are candidates for human review, not "
+                "a validated result."
+            )
+        lines.append("")
 
     lines += ["## 4. Contact register", ""]
 

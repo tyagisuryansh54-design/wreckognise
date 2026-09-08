@@ -140,12 +140,15 @@ def _quality(image: np.ndarray) -> dict[str, float]:
     # Speckle index (sigma / mu) -- the standard multiplicative-noise measure.
     speckle_index = std / max(mean, 1e-6)
 
-    # SNR estimated against a heavily smoothed "signal" reference.
+    # SNR estimated against a heavily smoothed "signal" reference. Both powers
+    # are floored: a degenerate swath (a constant-value ping block, or a file
+    # whose samples all decode to zero) would otherwise take log10(0) and yield
+    # -inf, which is not JSON-serialisable and 500s the ingest endpoint.
     signal = cv2.GaussianBlur(arr, (0, 0), sigmaX=3.0)
     noise = arr - signal
-    noise_power = float((noise**2).mean())
-    signal_power = float((signal**2).mean())
-    snr_db = 10.0 * np.log10(signal_power / max(noise_power, 1e-9))
+    noise_power = max(float((noise**2).mean()), 1e-9)
+    signal_power = max(float((signal**2).mean()), 1e-9)
+    snr_db = float(np.clip(10.0 * np.log10(signal_power / noise_power), -100.0, 100.0))
 
     # Michelson contrast across the 5th-95th percentile band.
     p5, p95 = np.percentile(arr, (5, 95))

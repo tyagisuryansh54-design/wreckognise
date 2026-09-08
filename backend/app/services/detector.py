@@ -1,25 +1,27 @@
-"""YOLOv8 acoustic-anomaly detection engine.
+"""Acoustic-anomaly detection engine.
 
 Two execution paths share one output contract:
 
-* **Native** -- when `ultralytics` and a weights file are present, the filtered
-  waterfall is tiled, run through YOLOv8, and the boxes are merged back into
-  full-swath coordinates.
-* **Simulation** -- otherwise, a classical CV proposal stage stands in for the
-  network: highlight segmentation, shadow pairing, contour extraction, then the
-  same NMS and confidence calibration the native path uses.
+* **Trained (yolov8-onnx)** -- YOLOv8n fine-tuned on the SCTD side-scan sonar
+  corpus, exported to ONNX and served through onnxruntime. This is the path
+  that reports validation figures, because it is the only one that has any.
+* **CV fallback** -- a classical highlight/shadow proposal stage used when no
+  weights are present. It keys off the right physical signature (a specular
+  highlight with an acoustic shadow down-range) but it is hand-tuned, not
+  learned, and it generalises poorly to imagery unlike its tuning set. It
+  reports NO accuracy figures, and `simulated` is true.
 
-The simulation path is a genuine detector, not a random box generator. It keys
-off the physical signature YOLOv8 is trained on -- a bright specular highlight
-with a dark acoustic shadow directly down-range of it -- so the metrics the
-dashboard shows correspond to work that actually happened.
+Whichever path runs, shadow geometry, georeferencing and severity assignment
+are applied identically downstream.
 """
 
 from __future__ import annotations
 
+import json
 import time
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 
 import cv2
 import numpy as np
@@ -38,6 +40,8 @@ from ..utils.geodesy import shadow_height
 from .georeference import bbox_dimensions_m, solve_bbox
 from .sonar_reader import SonarSurvey
 
+from . import onnx_detector
+
 try:  # pragma: no cover - optional heavyweight dependency
     from ultralytics import YOLO
 
@@ -46,19 +50,49 @@ except ImportError:  # pragma: no cover
     YOLO = None
     ULTRALYTICS_AVAILABLE = False
 
+MODELS_DIR = Path(__file__).resolve().parent.parent.parent / "models"
+
+
+def _load_validation() -> dict:
+    """Validation figures shipped with the weights, or {} if none exist.
+
+    Reading these from disk rather than hardcoding them means the dashboard
+    can only ever display numbers that a real evaluation produced.
+    """
+    path = MODELS_DIR / "metrics.json"
+    if not path.is_file():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+VALIDATION = _load_validation()
+
 
 # Proposal-stage thresholds, swept against the planted-target ground truth.
 HIGHLIGHT_SIGMA = 1.6      # highlight floor, sigma above local background
 SHADOW_SIGMA = -1.1        # shadow ceiling, sigma below local background
 MIN_CONTACT_AREA_PX = 40   # smallest resolvable contact
 
-MODEL_NAME = "YOLOv8n-SeaBed"
-MODEL_VERSION = "1.4.0-sih2026"
+MODEL_NAME = "YOLOv8n-SCTD"
+MODEL_VERSION = VALIDATION.get("model_version", "0.1.0-untrained")
+
+# The network was trained on SCTD's three classes. Anything it cannot name
+# becomes UNKNOWN rather than being guessed at from geometry.
+TRAINED_CLASS_MAP = {
+    "ship": AnomalyClass.SHIPWRECK,
+    "aircraft": AnomalyClass.AIRCRAFT,
+    "human": AnomalyClass.CASUALTY,
+}
 
 # Class decision table, applied to the geometry of each accepted proposal.
 # (label, severity) chosen from aspect ratio, absolute size and shadow strength.
 SEVERITY_BY_CLASS = {
     AnomalyClass.SHIPWRECK: Severity.CRITICAL,
+    AnomalyClass.AIRCRAFT: Severity.CRITICAL,
+    AnomalyClass.CASUALTY: Severity.CRITICAL,
     AnomalyClass.UXO: Severity.CRITICAL,
     AnomalyClass.CONTAINER: Severity.HIGH,
     AnomalyClass.DEBRIS_FIELD: Severity.HIGH,
@@ -85,11 +119,19 @@ def run_inference(
 
     proposals: list[dict] = []
     simulated = True
-    if ULTRALYTICS_AVAILABLE:
-        proposals, native_ok = _detect_native(image, tiles, conf_thr)
-        simulated = not native_ok
+    engine = "cv-fallback"
+
+    if onnx_detector.is_available():
+        try:
+            proposals = _detect_trained(image, conf_thr)
+            simulated = False
+            engine = "yolov8-onnx"
+        except Exception:  # noqa: BLE001 - a bad weights file must not 500 the API
+            proposals, simulated = [], True
+
     if simulated:
-        # No weights, or the native path raised: fall back to CV proposals.
+        # No trained weights, or the network raised: hand-tuned CV proposals.
+        # This path reports no accuracy figures; see the module docstring.
         proposals = _detect_simulated(image, survey)
 
     t_infer_done = time.perf_counter()
@@ -110,7 +152,7 @@ def run_inference(
     metrics = InferenceMetrics(
         model_name=MODEL_NAME,
         model_version=MODEL_VERSION,
-        weights=settings.model_weights,
+        weights=onnx_detector.weights_path().name if not simulated else "none (CV fallback)",
         device="cuda:0" if _cuda_available() else "cpu",
         input_resolution=f"{image.shape[1]}x{image.shape[0]}",
         preprocess_ms=round(preprocess_ms, 2),
@@ -123,60 +165,47 @@ def run_inference(
         kept_after_nms=len(detections),
         confidence_threshold=conf_thr,
         iou_threshold=iou_thr,
-        # Validation figures from the held-out SeaBed benchmark split.
-        map50=0.912,
-        map50_95=0.674,
-        precision=0.938,
-        recall=0.891,
+        # Only a trained engine may report accuracy, and only figures that a
+        # real held-out evaluation wrote to models/metrics.json.
+        map50=None if simulated else VALIDATION.get("map50"),
+        map50_95=None if simulated else VALIDATION.get("map50_95"),
+        precision=None if simulated else VALIDATION.get("precision"),
+        recall=None if simulated else VALIDATION.get("recall"),
+        validated_on=None if simulated else VALIDATION.get("validated_on"),
+        engine=engine,
         simulated=simulated,
     )
     return detections, metrics
 
 
 # --------------------------------------------------------------------------- #
-# Native YOLOv8 path
+# Trained path (ONNX)
 # --------------------------------------------------------------------------- #
-def _detect_native(
-    image: np.ndarray, tiles: list[tuple[int, int, int, int]], conf_thr: float
-) -> tuple[list[dict], bool]:
-    """Tiled YOLOv8 inference; returns (proposals, native_path_succeeded)."""
-    try:
-        model = _load_model()
-        rgb = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
-        proposals: list[dict] = []
+def _detect_trained(image: np.ndarray, conf_thr: float) -> list[dict]:
+    """Run the fine-tuned YOLOv8 network, then attach shadow geometry.
 
-        for x0, y0, x1, y1 in tiles:
-            crop = rgb[y0:y1, x0:x1]
-            results = model.predict(crop, conf=conf_thr, verbose=False)
-            for result in results:
-                for box in result.boxes:
-                    bx0, by0, bx1, by1 = box.xyxy[0].tolist()
-                    label = model.names.get(int(box.cls[0]), "unknown")
-                    proposals.append(
-                        {
-                            "x": int(x0 + bx0),
-                            "y": int(y0 + by0),
-                            "w": int(bx1 - bx0),
-                            "h": int(by1 - by0),
-                            "confidence": float(box.conf[0]),
-                            "label": _coerce_label(label),
-                            "shadow_px": 0,
-                            "backscatter": float(image[int(y0 + by0) : int(y0 + by1),
-                                                       int(x0 + bx0) : int(x0 + bx1)].mean()),
-                        }
-                    )
-        return proposals, True
-    except Exception:  # noqa: BLE001 - a missing weights file must not 500 the API
-        return [], False
+    The network localises and classifies; it does not measure acoustic shadows.
+    Shadow length is what turns a box into a height estimate, so it is measured
+    from the image for every accepted box using the same routine the CV path
+    uses. That keeps `height_estimate_m` meaningful whichever engine ran.
+    """
+    proposals = onnx_detector.detect(image, conf_thr)
+    if not proposals:
+        return []
 
+    arr = image.astype(np.float32)
+    background = cv2.GaussianBlur(arr, (0, 0), sigmaX=21.0, sigmaY=21.0)
+    residual = arr - background
+    std = float(residual.std()) or 1.0
+    shadow_mask = ((residual / std) < SHADOW_SIGMA).astype(np.uint8) * 255
+    nadir = image.shape[1] // 2
 
-_MODEL_CACHE: dict[str, object] = {}
-
-
-def _load_model():
-    if settings.model_weights not in _MODEL_CACHE:
-        _MODEL_CACHE[settings.model_weights] = YOLO(settings.model_weights)
-    return _MODEL_CACHE[settings.model_weights]
+    for p in proposals:
+        p["label"] = TRAINED_CLASS_MAP.get(p.pop("raw_class", ""), AnomalyClass.UNKNOWN)
+        p["shadow_px"] = _measure_shadow(
+            shadow_mask, p["x"], p["y"], p["w"], p["h"], nadir
+        )
+    return proposals
 
 
 def _cuda_available() -> bool:

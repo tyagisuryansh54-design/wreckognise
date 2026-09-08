@@ -14,6 +14,8 @@ from pydantic import BaseModel, Field
 # --------------------------------------------------------------------------- #
 class AnomalyClass(str, Enum):
     SHIPWRECK = "shipwreck"
+    AIRCRAFT = "aircraft"            # trained class: downed aircraft
+    CASUALTY = "casualty"            # trained class: drowning victim
     DEBRIS_FIELD = "debris_field"
     CONTAINER = "container"
     PIPELINE = "pipeline"
@@ -195,11 +197,20 @@ class InferenceMetrics(BaseModel):
     kept_after_nms: int
     confidence_threshold: float
     iou_threshold: float
-    map50: float
-    map50_95: float
-    precision: float
-    recall: float
-    simulated: bool = Field(description="True when ultralytics weights were unavailable")
+
+    # Validation figures, populated only from a real held-out evaluation that
+    # shipped alongside the weights. They are None when no trained model is
+    # loaded -- an unvalidated engine must not report an accuracy number.
+    map50: float | None = None
+    map50_95: float | None = None
+    precision: float | None = None
+    recall: float | None = None
+    validated_on: str | None = Field(
+        default=None, description="Dataset and split the figures were measured on"
+    )
+
+    engine: str = Field(description="'yolov8-onnx' or 'cv-fallback'")
+    simulated: bool = Field(description="True when no trained weights were loaded")
 
 
 class InferenceResponse(BaseModel):
@@ -254,7 +265,9 @@ class HealthResponse(BaseModel):
     version: str
     pyxtf_available: bool
     opencv_available: bool
-    ultralytics_available: bool
+    onnxruntime_available: bool
+    trained_weights_loaded: bool
+    detection_engine: str = Field(description="'yolov8-onnx' or 'cv-fallback'")
     surveys_in_memory: int
 
 

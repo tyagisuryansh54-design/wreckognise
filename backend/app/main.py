@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from .config import settings
 from .models.schemas import HealthResponse
 from .routers import ingest, inference, reports
-from .services.detector import ULTRALYTICS_AVAILABLE
+from .services import onnx_detector
 from .services.sonar_reader import PYXTF_AVAILABLE
 from .services.store import store
 
@@ -38,13 +38,18 @@ WGS-84 pixel-to-coordinate georeferencing -> operator review and export.
 async def lifespan(_: FastAPI):
     logger.info("%s v%s starting", settings.app_name, settings.app_version)
     logger.info(
-        "engines | pyxtf=%s ultralytics=%s | storage=%s",
+        "engines | pyxtf=%s onnxruntime=%s trained_weights=%s | storage=%s",
         PYXTF_AVAILABLE,
-        ULTRALYTICS_AVAILABLE,
+        onnx_detector.ONNX_AVAILABLE,
+        onnx_detector.is_available(),
         settings.storage_dir,
     )
-    if not ULTRALYTICS_AVAILABLE:
-        logger.info("ultralytics not installed -- detection runs on the CV simulation path")
+    if not onnx_detector.is_available():
+        logger.warning(
+            "no trained weights at %s -- detection falls back to the hand-tuned "
+            "CV engine, which reports no accuracy figures",
+            onnx_detector.weights_path(),
+        )
     yield
     logger.info("%s shutting down", settings.app_name)
 
@@ -109,11 +114,14 @@ async def health() -> HealthResponse:
     except ImportError:
         opencv = False
 
+    trained = onnx_detector.is_available()
     return HealthResponse(
         status="ok" if opencv else "degraded",
         version=settings.app_version,
         pyxtf_available=PYXTF_AVAILABLE,
         opencv_available=opencv,
-        ultralytics_available=ULTRALYTICS_AVAILABLE,
+        onnxruntime_available=onnx_detector.ONNX_AVAILABLE,
+        trained_weights_loaded=trained,
+        detection_engine="yolov8-onnx" if trained else "cv-fallback",
         surveys_in_memory=len(store),
     )

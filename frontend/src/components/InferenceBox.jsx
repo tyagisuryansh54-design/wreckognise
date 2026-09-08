@@ -223,7 +223,11 @@ export default function InferenceBox({
             )}
 
             <figcaption className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-navy/90 to-transparent px-3 py-2 font-mono text-2xs text-cream/60">
-              <span>{metrics.simulated ? 'CV proposal engine' : 'YOLOv8 native weights'}</span>
+              <span>
+                {metrics.simulated
+                  ? 'CV fallback · unvalidated'
+                  : `${metrics.model_name} · trained weights`}
+              </span>
               <span>hover to solve any pixel →</span>
             </figcaption>
           </figure>
@@ -309,34 +313,60 @@ export default function InferenceBox({
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <Stat dark label="Contacts" value={inference.summary.total} accent="text-aqua" />
             <Stat dark label="Latency" value={metrics.total_ms.toFixed(0)} unit="ms" />
-            <Stat dark label="mAP@50" value={metrics.map50.toFixed(3)} />
+            <Stat
+              dark
+              label="mAP@50"
+              value={metrics.map50 != null ? metrics.map50.toFixed(3) : '—'}
+              hint={metrics.map50 == null ? 'No validated accuracy for this engine' : metrics.validated_on}
+            />
             <Stat dark label="Throughput" value={metrics.fps.toFixed(1)} unit="fps" />
           </div>
 
-          <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="label text-cream/40">Precision</span>
-                <span className="font-mono text-2xs text-cream/60">
-                  {metrics.precision.toFixed(3)}
-                </span>
+          {/* Accuracy is shown only when the engine has a measured validation
+              run behind it. An unvalidated engine says so plainly rather than
+              displaying a number it cannot support. */}
+          {metrics.precision != null ? (
+            <>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="label text-cream/40">Precision</span>
+                    <span className="font-mono text-2xs text-cream/60">
+                      {metrics.precision.toFixed(3)}
+                    </span>
+                  </div>
+                  <div className="mt-1.5">
+                    <Meter value={metrics.precision} colour="bg-aqua" track="bg-cream/10" />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="label text-cream/40">Recall</span>
+                    <span className="font-mono text-2xs text-cream/60">
+                      {metrics.recall.toFixed(3)}
+                    </span>
+                  </div>
+                  <div className="mt-1.5">
+                    <Meter value={metrics.recall} colour="bg-azure" track="bg-cream/10" />
+                  </div>
+                </div>
               </div>
-              <div className="mt-1.5">
-                <Meter value={metrics.precision} colour="bg-aqua" track="bg-cream/10" />
-              </div>
+              {metrics.validated_on && (
+                <p className="mt-2 font-serif text-2xs text-cream/40">
+                  Measured on {metrics.validated_on}
+                </p>
+              )}
+            </>
+          ) : (
+            <div className="mt-4 rounded-xl border border-amber/30 bg-amber/10 px-4 py-3">
+              <p className="label text-amber">Unvalidated Engine</p>
+              <p className="mt-1 font-serif text-xs leading-relaxed text-cream/60">
+                No trained weights are loaded, so this run has no measured
+                detection accuracy. Contacts are candidates for human review,
+                not a validated result.
+              </p>
             </div>
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="label text-cream/40">Recall</span>
-                <span className="font-mono text-2xs text-cream/60">
-                  {metrics.recall.toFixed(3)}
-                </span>
-              </div>
-              <div className="mt-1.5">
-                <Meter value={metrics.recall} colour="bg-azure" track="bg-cream/10" />
-              </div>
-            </div>
-          </div>
+          )}
 
           <dl className="mt-4 rounded-xl bg-cream/5 px-4 py-2">
             <Row dark label="Model" value={`${metrics.model_name} v${metrics.model_version}`} mono={false} />

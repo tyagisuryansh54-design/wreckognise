@@ -27,3 +27,9 @@ backend/storage/reports/*
 .idea/
 .DS_Store
 Thumbs.db
+
+# Trained model weights are large binaries; metrics.json IS tracked so the
+# reported accuracy is reviewable in git.
+backend/models/*.pt
+backend/models/*.onnx
+!backend/models/metrics.json
