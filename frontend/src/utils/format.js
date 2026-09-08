@@ -39,8 +39,13 @@ export const SEVERITY_STYLES = {
 export const severityStyle = (severity) => SEVERITY_STYLES[severity] ?? SEVERITY_STYLES.low
 
 /** Human labels for the detector's class taxonomy. */
+// Must stay in step with AnomalyClass in backend/app/models/schemas.py. A
+// class the model can emit but this map lacks would silently render as
+// "Unclassified", hiding a correct identification behind a UI gap.
 export const CLASS_LABELS = {
   shipwreck: 'Shipwreck',
+  aircraft: 'Aircraft',
+  casualty: 'Casualty',
   debris_field: 'Debris Field',
   container: 'Container',
   pipeline: 'Pipeline',

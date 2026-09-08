@@ -13,7 +13,6 @@ const REVIEW_TONES = {
 
 const FILTERS = [
   { id: 'all', label: 'All' },
-  { id: 'critical', label: 'Critical' },
   { id: 'flagged', label: 'Flagged' },
   { id: 'pending', label: 'Pending' },
 ]
@@ -32,10 +31,7 @@ export default function ContactRegister({ detections, selected, onSelect, summar
     return detections
       .filter((d) => {
         if (filter === 'all') return true
-        if (filter === 'critical') return d.severity === 'critical'
-        if (filter === 'flagged') return d.review_status === 'flagged'
-        if (filter === 'pending') return d.review_status === 'pending'
-        return true
+        return d.review_status === filter
       })
       .sort(
         (a, b) => order[a.severity] - order[b.severity] || b.confidence - a.confidence,
@@ -72,9 +68,7 @@ export default function ContactRegister({ detections, selected, onSelect, summar
           const count =
             option.id === 'all'
               ? detections.length
-              : option.id === 'critical'
-                ? criticalCount
-                : detections.filter((d) => d.review_status === option.id).length
+              : detections.filter((d) => d.review_status === option.id).length
           return (
             <button
               key={option.id}
