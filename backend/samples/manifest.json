@@ -11,7 +11,13 @@
         "h": 0.627767
       }
     ],
-    "source": "SCTD 1.0 held-out validation split (never used in training)"
+    "source": "SCTD 1.0 held-out validation split (never used in training)",
+    "origin": {
+      "lat": 8.6,
+      "lon": 78.4,
+      "depth_m": 46,
+      "place": "Gulf of Mannar \u2014 outer shelf"
+    }
   },
   {
     "file": "000161.jpg",
@@ -25,7 +31,13 @@
         "h": 0.630189
       }
     ],
-    "source": "SCTD 1.0 held-out validation split (never used in training)"
+    "source": "SCTD 1.0 held-out validation split (never used in training)",
+    "origin": {
+      "lat": 8.85,
+      "lon": 78.55,
+      "depth_m": 34,
+      "place": "Gulf of Mannar \u2014 Thoothukudi approaches"
+    }
   },
   {
     "file": "000077.jpg",
@@ -39,7 +51,13 @@
         "h": 0.39821
       }
     ],
-    "source": "SCTD 1.0 held-out validation split (never used in training)"
+    "source": "SCTD 1.0 held-out validation split (never used in training)",
+    "origin": {
+      "lat": 9.05,
+      "lon": 78.95,
+      "depth_m": 13,
+      "place": "Palk Bay \u2014 shallow bank"
+    }
   },
   {
     "file": "000400.jpg",
@@ -53,6 +71,12 @@
         "h": 0.756065
       }
     ],
-    "source": "SCTD 1.0 held-out validation split (never used in training)"
+    "source": "SCTD 1.0 held-out validation split (never used in training)",
+    "origin": {
+      "lat": 8.7,
+      "lon": 78.7,
+      "depth_m": 782,
+      "place": "Gulf of Mannar \u2014 shelf edge"
+    }
   }
 ]

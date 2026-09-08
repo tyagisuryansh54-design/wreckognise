@@ -395,11 +395,21 @@ DEMO_ORIGIN_LON = 78.40
 DEMO_ORIGIN_JITTER_DEG = 0.012  # ~1.3 km, well inside the verified water box
 
 
-def _synthetic_track(pings: int, seed: int) -> list[PingTelemetry]:
-    """A survey line off the Gulf of Mannar with realistic drift, yaw and heave."""
+def _synthetic_track(
+    pings: int,
+    seed: int,
+    origin: tuple[float, float] | None = None,
+) -> list[PingTelemetry]:
+    """A survey line with realistic drift, yaw and heave.
+
+    `origin` pins the line to a specific place. Without it every line would
+    start from the same demo point, so a chart showing several surveys would
+    stack them on top of each other and look broken.
+    """
     rng = np.random.default_rng(seed + 7)
-    lat = DEMO_ORIGIN_LAT + float(rng.normal(0, DEMO_ORIGIN_JITTER_DEG))
-    lon = DEMO_ORIGIN_LON + float(rng.normal(0, DEMO_ORIGIN_JITTER_DEG))
+    base_lat, base_lon = origin if origin else (DEMO_ORIGIN_LAT, DEMO_ORIGIN_LON)
+    lat = base_lat + float(rng.normal(0, DEMO_ORIGIN_JITTER_DEG))
+    lon = base_lon + float(rng.normal(0, DEMO_ORIGIN_JITTER_DEG))
     base_heading = float(rng.uniform(0, 360))
     speed_knots = float(rng.uniform(3.4, 4.6))
     slant = float(rng.choice([50.0, 75.0, 100.0, 150.0]))
@@ -538,7 +548,12 @@ def read_image_sample(filename: str, survey_id: str) -> SonarSurvey:
         raise ValueError(f"could not decode sample '{filename}'")
 
     pings = image.shape[0]
-    telemetry = _synthetic_track(pings, seed=_seed_of(path))
+    origin = None
+    for entry in list_samples():
+        if entry.get("file") == path.name and entry.get("origin"):
+            origin = (entry["origin"]["lat"], entry["origin"]["lon"])
+            break
+    telemetry = _synthetic_track(pings, seed=_seed_of(path), origin=origin)
     metadata = _build_metadata(
         survey_id=survey_id,
         path=path,
