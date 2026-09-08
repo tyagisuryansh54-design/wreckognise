@@ -15,6 +15,7 @@ one score that hides the disagreement.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 
 from ..models.schemas import AnomalyClass, Severity
@@ -30,6 +31,11 @@ class CatalogueEntry:
     severity: Severity
     # Typical along-track extent (length) in metres, as seen on a swath.
     length_range_m: tuple[float, float]
+    # Along-track / across-track ratio a typical example presents at, and
+    # whether it normally stands proud enough to throw a shadow. Used to pick
+    # the most consistent class when the network has no opinion.
+    aspect_range: tuple[float, float]
+    casts_shadow: bool
     acoustic_signature: str
     operational_note: str
     aliases: tuple[str, ...] = field(default=())
@@ -42,6 +48,8 @@ CATALOGUE: dict[AnomalyClass, CatalogueEntry] = {
         category="Wreck",
         severity=Severity.CRITICAL,
         length_range_m=(15.0, 300.0),
+        aspect_range=(2.0, 12.0),
+        casts_shadow=True,
         acoustic_signature=(
             "Strong specular return from hull plating with a long, well-defined "
             "acoustic shadow; internal structure often resolves as regular ribbing."
@@ -58,6 +66,8 @@ CATALOGUE: dict[AnomalyClass, CatalogueEntry] = {
         category="Wreck",
         severity=Severity.CRITICAL,
         length_range_m=(8.0, 70.0),
+        aspect_range=(0.8, 3.5),
+        casts_shadow=True,
         acoustic_signature=(
             "Compact high-intensity return with symmetric wing returns either "
             "side of a linear fuselage; shadow shorter than a vessel of similar length."
@@ -74,6 +84,8 @@ CATALOGUE: dict[AnomalyClass, CatalogueEntry] = {
         category="Search & Rescue",
         severity=Severity.CRITICAL,
         length_range_m=(1.2, 2.5),
+        aspect_range=(1.5, 5.0),
+        casts_shadow=True,
         acoustic_signature=(
             "Small, low-contrast return close to the seabed with a faint shadow; "
             "easily lost in ripple texture at long range."
@@ -90,6 +102,8 @@ CATALOGUE: dict[AnomalyClass, CatalogueEntry] = {
         category="Debris",
         severity=Severity.HIGH,
         length_range_m=(6.0, 13.0),
+        aspect_range=(1.5, 3.5),
+        casts_shadow=True,
         acoustic_signature=(
             "Rectangular return with hard right-angled corners and a crisp, "
             "box-shaped shadow -- geometry is the giveaway."
@@ -106,6 +120,8 @@ CATALOGUE: dict[AnomalyClass, CatalogueEntry] = {
         category="Infrastructure",
         severity=Severity.MEDIUM,
         length_range_m=(40.0, 5000.0),
+        aspect_range=(8.0, 400.0),
+        casts_shadow=False,
         acoustic_signature=(
             "Continuous linear return running across multiple pings with a narrow, "
             "parallel shadow; free spans show as gaps beneath the line."
@@ -122,6 +138,8 @@ CATALOGUE: dict[AnomalyClass, CatalogueEntry] = {
         category="Debris",
         severity=Severity.HIGH,
         length_range_m=(3.0, 120.0),
+        aspect_range=(0.5, 4.0),
+        casts_shadow=False,
         acoustic_signature=(
             "Diffuse, irregular return with no coherent shadow; often drapes over "
             "relief and follows seabed contour rather than sitting proud of it."
@@ -138,6 +156,8 @@ CATALOGUE: dict[AnomalyClass, CatalogueEntry] = {
         category="Debris",
         severity=Severity.MEDIUM,
         length_range_m=(2.0, 60.0),
+        aspect_range=(1.0, 8.0),
+        casts_shadow=True,
         acoustic_signature=(
             "Bright compact return with a trailing beaded line of chain links; "
             "frequently accompanied by drag scars in the sediment."
@@ -154,6 +174,8 @@ CATALOGUE: dict[AnomalyClass, CatalogueEntry] = {
         category="Debris",
         severity=Severity.HIGH,
         length_range_m=(5.0, 400.0),
+        aspect_range=(0.4, 2.5),
+        casts_shadow=False,
         acoustic_signature=(
             "Cluster of small unconnected returns with inconsistent shadow "
             "directions, spread over an area rather than a single footprint."
@@ -170,6 +192,8 @@ CATALOGUE: dict[AnomalyClass, CatalogueEntry] = {
         category="Hazard",
         severity=Severity.CRITICAL,
         length_range_m=(0.5, 6.0),
+        aspect_range=(1.5, 6.0),
+        casts_shadow=True,
         acoustic_signature=(
             "Small cylindrical return with a disproportionately long shadow for "
             "its size, indicating an object standing proud of the seabed."
@@ -186,6 +210,8 @@ CATALOGUE: dict[AnomalyClass, CatalogueEntry] = {
         category="Geology",
         severity=Severity.LOW,
         length_range_m=(0.5, 12.0),
+        aspect_range=(0.7, 1.6),
+        casts_shadow=True,
         acoustic_signature=(
             "Rounded return with a soft-edged shadow and no internal structure; "
             "usually one of many across a glacial or reef seabed."
@@ -202,6 +228,8 @@ CATALOGUE: dict[AnomalyClass, CatalogueEntry] = {
         category="Unclassified",
         severity=Severity.MEDIUM,
         length_range_m=(0.5, 500.0),
+        aspect_range=(0.1, 999.0),
+        casts_shadow=False,
         acoustic_signature=(
             "Return does not match a catalogued signature with sufficient margin."
         ),
@@ -243,10 +271,12 @@ def size_plausibility(label: AnomalyClass, length_m: float) -> float:
         return 0.0
     if low <= length_m <= high:
         return 1.0
-    # Grade down on the log ratio: an order of magnitude out scores ~0.
+    # Inverse-square falloff outside the range. A linear grade was far too
+    # forgiving: a 3 m object still scored 0.98 against a class topping out at
+    # 2.5 m, which was enough to beat the class that actually fitted.
     reference = low if length_m < low else high
     ratio = max(length_m, reference) / max(min(length_m, reference), 1e-6)
-    return round(max(0.0, 1.0 - (ratio - 1.0) / 9.0), 3)
+    return round(max(0.0, 1.0 / (ratio**2)), 3)
 
 
 def as_dict(label: AnomalyClass) -> dict:
@@ -263,5 +293,53 @@ def as_dict(label: AnomalyClass) -> dict:
 
 
 def catalogue_listing() -> list[dict]:
-    """The whole catalogue, for the dashboard's reference panel."""
-    return [as_dict(key) for key in CATALOGUE]
+    """The reportable classes. UNKNOWN is excluded: it is a type-level fallback
+    that `best_match` always resolves before a detection reaches an operator."""
+    return [as_dict(key) for key in CATALOGUE if key is not AnomalyClass.UNKNOWN]
+
+
+def best_match(length_m: float, width_m: float, shadow_length_m: float) -> AnomalyClass:
+    """Pick the class whose survey profile best fits a measured contact.
+
+    Used whenever the network has no opinion -- an out-of-vocabulary label, or
+    the geometry-only fallback engine. Reporting "unclassified" tells an
+    operator nothing they could not see themselves; naming the most consistent
+    class gives them something to confirm or reject. The honesty is carried by
+    `size_plausibility`, which stays low when the fit is poor.
+    """
+    if length_m <= 0 or width_m <= 0:
+        return AnomalyClass.DEBRIS_FIELD
+
+    aspect = length_m / max(width_m, 1e-6)
+    has_shadow = shadow_length_m > 0.5
+
+    best, best_score = AnomalyClass.DEBRIS_FIELD, -1.0
+    for entry in CATALOGUE.values():
+        if entry.key is AnomalyClass.UNKNOWN:
+            continue
+        # Size agreement carries the most weight -- it is the measurement we
+        # trust most, coming straight from the swath geometry.
+        score = 3.0 * size_plausibility(entry.key, length_m)
+
+        lo, hi = entry.aspect_range
+        if lo <= aspect <= hi:
+            score += 2.0
+        else:
+            reference = lo if aspect < lo else hi
+            ratio = max(aspect, reference) / max(min(aspect, reference), 1e-6)
+            score += max(0.0, 2.0 - (ratio - 1.0) / 2.0)
+
+        # A shadow means the object stands proud of the seabed; its absence is
+        # just as informative for flat things like netting or pipeline.
+        score += 1.0 if entry.casts_shadow == has_shadow else 0.0
+
+        # Prefer the most specific class that fits. Without this, entries with
+        # very wide ranges (anchor debris spans 2-60 m) out-compete a tight,
+        # obviously-correct match like a 9 m cargo container simply by
+        # overlapping everything.
+        lo_s, hi_s = entry.length_range_m
+        score += 1.5 / math.log10(10.0 * hi_s / max(lo_s, 1e-6))
+
+        if score > best_score:
+            best, best_score = entry.key, score
+    return best

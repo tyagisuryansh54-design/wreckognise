@@ -135,10 +135,8 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
-  // --- findings ledger ----------------------------------------------
-  findings: (limit = 100) => request(`/api/findings?limit=${limit}`),
-
-  catalogue: () => request('/api/findings/catalogue'),
+  // --- reference data -----------------------------------------------
+  catalogue: () => request('/api/catalogue'),
 
   // --- reporting ---------------------------------------------------
   report: (payload) =>

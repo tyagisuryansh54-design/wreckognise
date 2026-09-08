@@ -14,7 +14,6 @@ from ..models.schemas import (
     SurveyStatus,
 )
 from ..services.detector import run_inference, summarise
-from ..services.findings import ledger
 from ..services.georeference import solve_pixel
 from ..services.preprocessing import render_annotated
 from ..services.store import store
@@ -41,10 +40,6 @@ async def detect(
     detections, metrics = run_inference(survey, confidence, iou)
     survey.detections = detections
     survey.inference_metrics = metrics
-
-    # Every analysed survey appends its catalogued anomalies to the server-side
-    # ledger, so the dashboard shows findings across all scans, not just this one.
-    ledger.record_survey(survey.metadata, detections)
 
     annotated = settings.processed_dir / f"{survey_id}_annotated.png"
     render_annotated(survey.filtered, detections, annotated)

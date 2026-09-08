@@ -276,39 +276,6 @@ class ReportResponse(BaseModel):
     stats: DetectionSummary
 
 
-class FindingRecord(BaseModel):
-    """One catalogued anomaly, appended to the server-side ledger on detection."""
-
-    finding_id: str
-    survey_id: str
-    source_file: str
-    detected_at: datetime
-
-    label: str
-    display_name: str
-    category: str
-    severity: Severity
-    confidence: float = Field(..., ge=0, le=1, description="Model probability")
-    size_plausibility: float = Field(
-        ..., ge=0, le=1, description="Agreement between measured size and catalogue"
-    )
-
-    latitude: float
-    longitude: float
-    horizontal_uncertainty_m: float
-    length_m: float
-    width_m: float
-    height_estimate_m: float
-    operational_note: str
-
-
-class FindingsResponse(BaseModel):
-    total: int
-    by_category: dict[str, int]
-    by_class: dict[str, int]
-    findings: list[FindingRecord]
-
-
 class HealthResponse(BaseModel):
     status: Literal["ok", "degraded"]
     version: str

@@ -14,7 +14,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import settings
 from .models.schemas import HealthResponse
-from .routers import findings, ingest, inference, reports
+from .routers import catalogue as catalogue_router, ingest, inference, reports
 from .services import onnx_detector
 from .services.sonar_reader import PYXTF_AVAILABLE
 from .services.store import store
@@ -65,7 +65,7 @@ app = FastAPI(
         {"name": "ingestion", "description": "Raw sonar upload, decode and preprocessing."},
         {"name": "inference", "description": "YOLOv8 detection, georeferencing and review."},
         {"name": "reporting", "description": "Executive summaries and GIS export."},
-        {"name": "findings", "description": "Live ledger of catalogued ocean findings."},
+        {"name": "catalogue", "description": "Reference data for seabed object classes."},
         {"name": "system", "description": "Health and capability probes."},
     ],
 )
@@ -85,7 +85,7 @@ app.mount("/static", StaticFiles(directory=str(settings.storage_dir)), name="sta
 app.include_router(ingest.router)
 app.include_router(inference.router)
 app.include_router(reports.router)
-app.include_router(findings.router)
+app.include_router(catalogue_router.router)
 
 
 @app.get("/", tags=["system"])

@@ -76,6 +76,11 @@ HIGHLIGHT_SIGMA = 1.6      # highlight floor, sigma above local background
 SHADOW_SIGMA = -1.1        # shadow ceiling, sigma below local background
 MIN_CONTACT_AREA_PX = 40   # smallest resolvable contact
 
+# Below this agreement between the predicted class and the measured size, the
+# geometry wins. 0.25 means roughly a factor-of-two size error is tolerated,
+# but an order of magnitude is not.
+SIZE_OVERRIDE_THRESHOLD = 0.25
+
 MODEL_NAME = "YOLOv8n-SCTD"
 MODEL_VERSION = VALIDATION.get("model_version", "0.1.0-untrained")
 
@@ -423,7 +428,26 @@ def _build_detection(survey: SonarSurvey, proposal: dict) -> Detection:
 
     label = proposal["label"]
     if not isinstance(label, AnomalyClass):
-        label = _coerce_label(str(label))
+        label = catalogue.resolve(str(label))
+
+    # Never surface "unclassified". Telling an operator the system found
+    # something but will not say what adds nothing they could not see on the
+    # waterfall themselves. Where the network has no opinion, assign the class
+    # whose survey profile the measured geometry actually fits.
+    if label is AnomalyClass.UNKNOWN:
+        label = catalogue.best_match(length_m, width_m, shadow_len_m)
+
+    # Physics overrides the classifier -- but only where the metre scale means
+    # something. The network scores appearance; swath geometry measures size,
+    # and the two are independent evidence. When they flatly disagree (a 28 m
+    # contact labelled as a 2 m person) the measurement is the more trustworthy.
+    #
+    # A bare sonar image carries no navigation, so its metre scale is derived
+    # from a simulated track and is arbitrary. Overriding a real prediction with
+    # an invented dimension there turns a correct answer into a wrong one.
+    if survey.metadata.file_format != "image":
+        if catalogue.size_plausibility(label, length_m) < SIZE_OVERRIDE_THRESHOLD:
+            label = catalogue.best_match(length_m, width_m, shadow_len_m)
 
     # Backscatter in dB relative to 8-bit full scale.
     backscatter = proposal.get("backscatter", 0.0)
