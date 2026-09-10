@@ -29,8 +29,19 @@ def preprocess(
     method: str | None = None,
     apply_tvg: bool = True,
     apply_clahe: bool = True,
-) -> tuple[np.ndarray, PreprocessStats]:
-    """Denoise a raw waterfall and report before/after image-quality metrics."""
+) -> tuple[np.ndarray, np.ndarray, PreprocessStats]:
+    """Denoise a raw waterfall and report before/after image-quality metrics.
+
+    Returns `(display, detect, stats)`.
+
+    `display` has CLAHE applied and is what the operator sees. `detect` is the
+    same image *before* CLAHE, and is what the network is given.
+
+    They are separated because CLAHE is a contrast stage, not a noise stage.
+    The detector was trained on un-equalised sonar, so equalising first is a
+    train/serve mismatch: it silently cost two of the four bundled real-sonar
+    samples every single detection, while the raw image scored 0.9.
+    """
     method = (method or settings.denoise_method).lower()
     started = time.perf_counter()
 
@@ -79,6 +90,9 @@ def preprocess(
     # into the SNR figure would understate what the filter actually achieved.
     denoise_metrics = _quality(filtered)
 
+    # Hand the network the pre-CLAHE image; see the docstring.
+    detect_input = filtered.copy()
+
     if apply_clahe:
         clahe = cv2.createCLAHE(
             clipLimit=settings.clahe_clip_limit,
@@ -111,7 +125,7 @@ def preprocess(
         tvg_applied=apply_tvg,
         slant_range_corrected=True,
     )
-    return filtered, stats
+    return filtered, detect_input, stats
 
 
 def _normalise_tvg(image: np.ndarray) -> np.ndarray:

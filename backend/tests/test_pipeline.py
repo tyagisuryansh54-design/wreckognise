@@ -56,8 +56,9 @@ def main() -> int:
     check("targets planted", len(survey.targets) >= 4, f"{len(survey.targets)} targets")
 
     print("\n=== 3. Preprocessing ===")
-    filtered, stats = preprocess(survey.waterfall, method="nlm")
+    filtered, detect_input, stats = preprocess(survey.waterfall, method="nlm")
     survey.filtered = filtered
+    survey.detect_input = detect_input
     survey.preprocess_stats = stats
     check("output shape preserved", filtered.shape == survey.waterfall.shape)
     check("SNR improved", stats.snr_gain_db > 0, f"{stats.snr_gain_db:+.2f} dB")
@@ -65,7 +66,7 @@ def main() -> int:
           f"{stats.speckle_index_before:.4f} -> {stats.speckle_index_after:.4f}")
     check("timing recorded", stats.elapsed_ms > 0, f"{stats.elapsed_ms:.1f} ms")
 
-    _, bilateral_stats = preprocess(survey.waterfall, method="bilateral")
+    _, _, bilateral_stats = preprocess(survey.waterfall, method="bilateral")
     check("bilateral path runs", bilateral_stats.elapsed_ms > 0,
           f"{bilateral_stats.elapsed_ms:.1f} ms vs NLM {stats.elapsed_ms:.1f} ms")
 

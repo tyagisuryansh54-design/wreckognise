@@ -107,13 +107,14 @@ def _finalise(
     """
     survey_id = survey.survey_id
 
-    filtered, stats = preprocess(
+    filtered, detect_input, stats = preprocess(
         survey.waterfall,
         method=denoise_method,
         apply_tvg=apply_tvg,
         apply_clahe=apply_clahe,
     )
     survey.filtered = filtered
+    survey.detect_input = detect_input
     survey.preprocess_stats = stats
 
     raw_png = settings.processed_dir / f"{survey_id}_raw.png"

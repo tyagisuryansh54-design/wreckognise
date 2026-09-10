@@ -102,7 +102,12 @@ def run_inference(
     conf_thr = confidence_threshold if confidence_threshold is not None else settings.confidence_threshold
     iou_thr = iou_threshold if iou_threshold is not None else settings.iou_threshold
 
-    image = survey.filtered if survey.filtered is not None else survey.waterfall
+    # Detect on the un-equalised swath: the network was trained on raw sonar,
+    # and CLAHE pushes it off-distribution. Fall back through the display image
+    # to the raw waterfall so an older survey object still works.
+    image = survey.detect_input if survey.detect_input is not None else (
+        survey.filtered if survey.filtered is not None else survey.waterfall
+    )
 
     t_pre = time.perf_counter()
     tiles = _tile_indices(image.shape, tile=640, overlap=96)

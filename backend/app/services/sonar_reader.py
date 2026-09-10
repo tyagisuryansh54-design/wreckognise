@@ -61,7 +61,10 @@ class SonarSurvey:
     metadata: SonarMetadata
     telemetry: list[PingTelemetry]
     waterfall: np.ndarray  # uint8, shape (pings, samples)
+    # `filtered` is the operator-facing image (CLAHE applied); `detect_input`
+    # is the same swath before equalisation, which is what the network sees.
     filtered: np.ndarray | None = None
+    detect_input: np.ndarray | None = None
     targets: list[PlantedTarget] = field(default_factory=list)
     detections: list = field(default_factory=list)
     preprocess_stats: object | None = None
