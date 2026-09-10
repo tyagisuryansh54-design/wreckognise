@@ -155,7 +155,7 @@ per class:  aircraft 0.988  ·  ship 0.975  ·  human 0.556
 validated on: SCTD 1.0 held-out split (71 images, 20% stratified, never trained on)
 ```
 
-**Currently deployed: the combined model**, reporting **mAP@0.5 = 0.598** on the combined held-out split (525 images).
+**Currently deployed: the SCTD-trained model**, reporting **mAP@0.5 = 0.839** — the best measured score of the three. `models/metrics.json` ships the cross-dataset figure (0.203) and the combined model's profile alongside it, so the transfer limitation is recorded in the artefact rather than left to a slide.
 
 ### 4.5 The cross-dataset test — the most important result
 
