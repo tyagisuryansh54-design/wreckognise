@@ -267,6 +267,6 @@ def convert(src: Path, dst: Path) -> int:
 
 
 if __name__ == "__main__":
-    root = Path(r"C:\Users\Suryansh Tyagi\OneDrive\Desktop\wreckognise")
+    root = Path(__file__).resolve().parent.parent
     name = sys.argv[1] if len(sys.argv) > 1 else "PROJECT_REPORT"
     raise SystemExit(convert(root / f"{name}.md", root / f"{name}.pdf"))

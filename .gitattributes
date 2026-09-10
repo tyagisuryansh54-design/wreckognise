@@ -1,0 +1,9 @@
+# Without this, core.autocrlf on Windows rewrites LF bytes inside these files
+# on checkout and the result is a corrupt download.
+*.pdf   binary
+*.png   binary
+*.jpg   binary
+*.onnx  binary
+*.pt    binary
+*.xtf   binary
+*.jsf   binary
