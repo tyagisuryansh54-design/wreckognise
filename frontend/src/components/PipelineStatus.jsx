@@ -45,7 +45,7 @@ export default function PipelineStatus({ stage, ingest, inference, report, busy 
                   {index > 0 && (
                     <span
                       className={`absolute right-1/2 top-3.5 h-0.5 w-full -translate-y-1/2 ${
-                        done ? 'bg-azure' : 'bg-navy/12'
+                        done ? 'bg-azure' : 'bg-ink/12'
                       }`}
                       aria-hidden="true"
                     />
@@ -53,22 +53,22 @@ export default function PipelineStatus({ stage, ingest, inference, report, busy 
                   <span
                     className={`relative z-10 grid h-7 w-7 place-items-center rounded-full font-mono text-2xs font-bold transition-colors ${
                       active
-                        ? 'bg-aqua text-navy ring-4 ring-aqua/25'
+                        ? 'bg-aqua text-ink ring-4 ring-aqua/25'
                         : done
-                          ? 'bg-azure text-white'
-                          : 'bg-sand text-navy/35 ring-1 ring-navy/10'
+                          ? 'bg-azure text-cream'
+                          : 'bg-sand text-ink/35 ring-1 ring-ink/10'
                     }`}
                   >
                     {done && !active ? '✓' : index + 1}
                   </span>
                   <span
                     className={`mt-2 font-mono text-2xs font-semibold uppercase tracking-wide ${
-                      done || active ? 'text-navy' : 'text-navy/35'
+                      done || active ? 'text-ink' : 'text-ink/35'
                     }`}
                   >
                     {item.label}
                   </span>
-                  <span className="mt-0.5 hidden font-serif text-2xs text-navy/40 sm:block">
+                  <span className="mt-0.5 hidden font-serif text-2xs text-ink/40 sm:block">
                     {item.detail}
                   </span>
                 </li>
@@ -76,7 +76,7 @@ export default function PipelineStatus({ stage, ingest, inference, report, busy 
             })}
           </ol>
 
-          <div className="mt-6 grid grid-cols-2 gap-4 border-t border-navy/8 pt-4 sm:grid-cols-4">
+          <div className="mt-6 grid grid-cols-2 gap-4 border-t border-ink/8 pt-4 sm:grid-cols-4">
             <Stat
               label="Pings"
               value={ingest ? ingest.metadata.ping_count.toLocaleString() : '—'}
@@ -99,10 +99,10 @@ export default function PipelineStatus({ stage, ingest, inference, report, busy 
         </div>
 
         {/* --- class distribution --- */}
-        <div className="lg:border-l lg:border-navy/8 lg:pl-6">
+        <div className="lg:border-l lg:border-ink/8 lg:pl-6">
           <p className="label text-azure">Contact Classification</p>
           {classes.length === 0 ? (
-            <p className="mt-4 font-serif text-sm text-navy/45">
+            <p className="mt-4 font-serif text-sm text-ink/45">
               No contacts classified yet. Run detection to break the swath down by
               anomaly class and severity.
             </p>
@@ -113,10 +113,10 @@ export default function PipelineStatus({ stage, ingest, inference, report, busy 
                 return (
                   <li key={name}>
                     <div className="flex items-baseline justify-between">
-                      <span className="font-sans text-xs font-medium text-navy">
+                      <span className="font-sans text-xs font-medium text-ink">
                         {classLabel(name)}
                       </span>
-                      <span className="font-mono text-2xs tabular-nums text-navy/50">
+                      <span className="font-mono text-2xs tabular-nums text-ink/50">
                         {count} · {(share * 100).toFixed(0)}%
                       </span>
                     </div>
@@ -134,7 +134,7 @@ export default function PipelineStatus({ stage, ingest, inference, report, busy 
           )}
 
           {summary && (
-            <div className="mt-4 flex flex-wrap gap-1.5 border-t border-navy/8 pt-3">
+            <div className="mt-4 flex flex-wrap gap-1.5 border-t border-ink/8 pt-3">
               {['critical', 'high', 'medium', 'low'].map((severity) => {
                 const count = summary.by_severity[severity]
                 if (!count) return null

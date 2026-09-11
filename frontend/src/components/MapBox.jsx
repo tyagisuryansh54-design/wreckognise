@@ -127,7 +127,7 @@ export default function MapBox({ telemetry, detections, selected, onSelect }) {
           title="Every contact, fixed to the chart"
           meta="WGS-84 · uncertainty circles from the live error budget"
           action={
-            <span className="hidden shrink-0 rounded-full bg-navy/5 p-2.5 text-azure sm:block">
+            <span className="hidden shrink-0 rounded-full bg-ink/5 p-2.5 text-azure sm:block">
               <IconMap className="h-5 w-5" />
             </span>
           }
@@ -142,7 +142,7 @@ export default function MapBox({ telemetry, detections, selected, onSelect }) {
                 onClick={() => setBasemap(id)}
                 aria-pressed={basemap === id}
                 className={`rounded-full px-3 py-1.5 font-mono text-2xs font-semibold uppercase tracking-wide transition-colors ${
-                  basemap === id ? 'bg-navy text-cream' : 'text-navy/50 hover:text-navy'
+                  basemap === id ? 'bg-navy text-ink' : 'text-ink/50 hover:text-ink'
                 }`}
               >
                 {config.label}
@@ -150,7 +150,7 @@ export default function MapBox({ telemetry, detections, selected, onSelect }) {
             ))}
           </div>
 
-          <label className="flex cursor-pointer items-center gap-2 font-mono text-2xs uppercase tracking-wide text-navy/50">
+          <label className="flex cursor-pointer items-center gap-2 font-mono text-2xs uppercase tracking-wide text-ink/50">
             <input
               type="checkbox"
               checked={showUncertainty}
@@ -164,7 +164,7 @@ export default function MapBox({ telemetry, detections, selected, onSelect }) {
 
       <div className="relative min-h-[24rem] flex-1">
         {trackLine.length === 0 ? (
-          <div className="absolute inset-0 bg-navy/[0.03]">
+          <div className="absolute inset-0 bg-ink/[0.03]">
             <EmptyState
               icon={<IconMap className="h-5 w-5" />}
               title="No survey line plotted"
@@ -248,8 +248,8 @@ export default function MapBox({ telemetry, detections, selected, onSelect }) {
 
         {/* Legend floats over the chart rather than stealing card height. */}
         {detections.length > 0 && (
-          <div className="pointer-events-none absolute bottom-4 left-4 z-[1000] rounded-xl bg-navy/88 px-3.5 py-2.5 backdrop-blur">
-            <p className="label text-cream/40">Severity</p>
+          <div className="pointer-events-none absolute bottom-4 left-4 z-[1000] rounded-xl bg-cream/88 px-3.5 py-2.5 backdrop-blur">
+            <p className="label text-ink/40">Severity</p>
             <ul className="mt-1.5 space-y-1">
               {['critical', 'high', 'medium', 'low'].map((severity) => {
                 const count = detections.filter((d) => d.severity === severity).length
@@ -258,9 +258,9 @@ export default function MapBox({ telemetry, detections, selected, onSelect }) {
                 return (
                   <li key={severity} className="flex items-center gap-2">
                     <span className={`h-2 w-2 rounded-full ${style.dot}`} />
-                    <span className="font-mono text-2xs text-cream/70">
+                    <span className="font-mono text-2xs text-ink/70">
                       {style.label}
-                      <span className="ml-1.5 text-cream/40">{count}</span>
+                      <span className="ml-1.5 text-ink/40">{count}</span>
                     </span>
                   </li>
                 )

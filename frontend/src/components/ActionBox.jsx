@@ -12,20 +12,15 @@ import { api } from '../utils/api'
 import { REVIEW_LABELS, classLabel, downloadText, severityStyle, toDMS } from '../utils/format'
 
 const DISPOSITIONS = [
-  { status: 'flagged', label: 'Flag Anomaly', icon: IconFlag, className: 'btn-alert' },
   {
-    status: 'under_review',
-    label: 'Human Review',
-    icon: IconEye,
-    className: 'btn !bg-amber !text-navy hover:!bg-sunset hover:!text-white',
+    status: 'flagged',
+    label: 'Flag Anomaly',
+    icon: IconFlag,
+    className: 'btn border border-coral/40 bg-transparent text-coral hover:bg-coral hover:text-cream',
   },
-  {
-    status: 'confirmed',
-    label: 'Confirm',
-    icon: IconCheck,
-    className: 'btn !bg-aqua !text-navy hover:!bg-azure hover:!text-white',
-  },
-  { status: 'dismissed', label: 'Dismiss', icon: IconX, className: 'btn-ghost-light' },
+  { status: 'under_review', label: 'Human Review', icon: IconEye, className: 'btn-ghost' },
+  { status: 'confirmed', label: 'Confirm', icon: IconCheck, className: 'btn-primary' },
+  { status: 'dismissed', label: 'Dismiss', icon: IconX, className: 'btn-ghost' },
 ]
 
 /** Disposition chip shown beside the severity badge. Labels come from
@@ -34,7 +29,7 @@ const REVIEW_CHIP = {
   flagged: 'bg-coral/20 text-coral border border-coral/35',
   under_review: 'bg-amber/20 text-amber border border-amber/35',
   confirmed: 'bg-aqua/20 text-aqua border border-aqua/35',
-  dismissed: 'bg-cream/10 text-cream/45 border border-cream/20',
+  dismissed: 'bg-cream/10 text-ink/45 border border-ink/20',
 }
 
 const FORMATS = [
@@ -91,7 +86,7 @@ export default function ActionBox({
       />
 
       {/* --- selected contact triage --- */}
-      <div className="mt-5 rounded-2xl bg-navy/45 p-4 ring-1 ring-cream/10">
+      <div className="mt-5 rounded-2xl bg-cream/45 p-4 ring-1 ring-ink/10">
         {!selected ? (
           <div className="py-4">
             <EmptyState
@@ -105,11 +100,11 @@ export default function ActionBox({
           <>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="label text-cream/40">Selected Contact</p>
-                <h3 className="mt-1 font-display text-lg font-semibold text-cream">
+                <p className="label text-ink/40">Selected Contact</p>
+                <h3 className="mt-1 font-display text-lg font-semibold text-ink">
                   {classLabel(selected.label)}
                 </h3>
-                <p className="font-mono text-2xs text-cream/40">{selected.detection_id}</p>
+                <p className="font-mono text-2xs text-ink/40">{selected.detection_id}</p>
               </div>
               <div className="flex shrink-0 flex-col items-end gap-1.5">
                 <Badge className={style.badgeDark}>{style.label}</Badge>
@@ -121,12 +116,12 @@ export default function ActionBox({
               </div>
             </div>
 
-            <div className="mt-3 rounded-lg bg-navy/50 px-3 py-2 font-mono text-2xs leading-relaxed text-cream/60">
+            <div className="mt-3 rounded-lg bg-cream/50 px-3 py-2 font-mono text-2xs leading-relaxed text-ink/60">
               {toDMS(selected.geo.latitude, 'lat')}
               <br />
               {toDMS(selected.geo.longitude, 'lon')}
               <br />
-              <span className="text-cream/35">
+              <span className="text-ink/35">
                 ± {selected.geo.horizontal_uncertainty_m.toFixed(2)} m ·{' '}
                 {(selected.confidence * 100).toFixed(1)}% confidence
               </span>
@@ -139,14 +134,14 @@ export default function ActionBox({
             )}
 
             <label className="mt-3 block">
-              <span className="label text-cream/40">Operator Note</span>
+              <span className="label text-ink/40">Operator Note</span>
               <textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 rows={2}
                 placeholder="e.g. Strong shadow, consistent with a steel hull. Verify with ROV."
-                className="mt-1.5 w-full resize-none rounded-lg border border-cream/12 bg-navy/50 px-3 py-2
-                           font-serif text-xs text-cream placeholder:text-cream/25
+                className="mt-1.5 w-full resize-none rounded-lg border border-ink/12 bg-cream/50 px-3 py-2
+                           font-serif text-xs text-ink placeholder:text-ink/25
                            focus:border-aqua focus:outline-none"
               />
             </label>
@@ -165,7 +160,7 @@ export default function ActionBox({
                     onClick={() => act(status)}
                     aria-pressed={isCurrent}
                     className={`${className} !px-3 !py-2 ${
-                      isCurrent ? 'ring-2 ring-cream/70 ring-offset-2 ring-offset-navy' : ''
+                      isCurrent ? 'ring-2 ring-ink/70 ring-offset-2 ring-offset-navy' : ''
                     }`}
                   >
                     {isCurrent ? <IconCheck className="h-3.5 w-3.5" /> : <Icon className="h-3.5 w-3.5" />}
@@ -180,7 +175,7 @@ export default function ActionBox({
 
       {/* --- export --- */}
       <div className="mt-5">
-        <p className="label text-cream/40">Export Format</p>
+        <p className="label text-ink/40">Export Format</p>
         <div className="mt-2 grid grid-cols-3 gap-2">
           {FORMATS.map((option) => (
             <button
@@ -191,7 +186,7 @@ export default function ActionBox({
               className={`rounded-xl border px-3 py-2 font-mono text-2xs font-semibold uppercase tracking-wide transition-all ${
                 format === option.id
                   ? 'border-aqua bg-aqua/15 text-aqua'
-                  : 'border-cream/12 text-cream/50 hover:border-cream/30'
+                  : 'border-ink/12 text-ink/50 hover:border-ink/30'
               }`}
             >
               {option.label}
@@ -229,7 +224,7 @@ export default function ActionBox({
           <div className="flex items-center justify-between">
             <div>
               <p className="label text-aqua">Report Ready</p>
-              <p className="mt-0.5 font-mono text-2xs text-cream/40">
+              <p className="mt-0.5 font-mono text-2xs text-ink/40">
                 {report.report_id} · {report.format} ·{' '}
                 {report.content.length.toLocaleString()} chars
               </p>
@@ -240,7 +235,7 @@ export default function ActionBox({
             </button>
           </div>
 
-          <pre className="scroll-slim mt-3 max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-navy/60 p-4 font-mono text-2xs leading-relaxed text-cream/65">
+          <pre className="scroll-slim mt-3 max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-cream/60 p-4 font-mono text-2xs leading-relaxed text-ink/65">
             {report.content.slice(0, 2600)}
             {report.content.length > 2600 && '\n\n… truncated — use Save for the full brief.'}
           </pre>

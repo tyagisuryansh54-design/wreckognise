@@ -70,7 +70,7 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, onSample,
         title="Raw sonar in, clean swath out"
         meta="pyxtf decode → TVG normalisation → OpenCV denoise → CLAHE"
         action={
-          <span className="hidden shrink-0 rounded-full bg-navy/5 p-2.5 text-azure sm:block">
+          <span className="hidden shrink-0 rounded-full bg-ink/5 p-2.5 text-azure sm:block">
             <IconWave className="h-5 w-5" />
           </span>
         }
@@ -85,7 +85,7 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, onSample,
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
         className={`mt-5 rounded-2xl border-2 border-dashed px-5 py-4 transition-colors ${
-          dragging ? 'border-aqua bg-aqua/8' : 'border-navy/15 bg-sand/50'
+          dragging ? 'border-aqua bg-aqua/8' : 'border-ink/15 bg-sand/50'
         }`}
       >
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -94,10 +94,10 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, onSample,
               {busy === 'ingest' ? <Spinner className="h-4 w-4" /> : <IconUpload className="h-4 w-4" />}
             </span>
             <div>
-              <p className="font-sans text-sm font-semibold text-navy">
+              <p className="font-sans text-sm font-semibold text-ink">
                 {busy === 'ingest' ? 'Decoding sonar packets…' : 'Drop a .xtf or .jsf capture'}
               </p>
-              <p className="font-serif text-xs text-navy/50">
+              <p className="font-serif text-xs text-ink/50">
                 EdgeTech JSF · Triton XTF · SEG-Y · up to 512 MB
               </p>
             </div>
@@ -129,7 +129,7 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, onSample,
                   setSampleIndex((i) => i + 1)
                 }}
                 disabled={busy === 'ingest'}
-                className="btn !bg-aqua !px-4 !py-2 !text-navy hover:!bg-azure hover:!text-white"
+                className="btn-primary !px-4 !py-2"
                 title={samples[sampleIndex % samples.length].description}
               >
                 Real Sonar
@@ -152,7 +152,7 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, onSample,
 
       {/* --- denoise kernel selector --- */}
       <fieldset className="mt-4">
-        <legend className="label text-navy/40">Denoise Kernel</legend>
+        <legend className="label text-ink/40">Denoise Kernel</legend>
         <div className="mt-2 grid grid-cols-3 gap-2">
           {DENOISE_OPTIONS.map((option) => (
             <button
@@ -164,13 +164,13 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, onSample,
               className={`rounded-xl border px-3 py-2 text-left transition-all ${
                 method === option.id
                   ? 'border-azure bg-azure/10 text-azure'
-                  : 'border-navy/12 bg-white/60 text-navy/60 hover:border-navy/25'
+                  : 'border-ink/12 bg-sand text-ink/60 hover:border-ink/25'
               }`}
             >
               <span className="block font-mono text-2xs font-semibold uppercase tracking-wide">
                 {option.label}
               </span>
-              <span className="mt-0.5 block truncate font-serif text-2xs text-navy/40">
+              <span className="mt-0.5 block truncate font-serif text-2xs text-ink/40">
                 {option.hint}
               </span>
             </button>
@@ -181,7 +181,7 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, onSample,
       {/* --- comparison viewer --- */}
       <div className="mt-5 flex-1">
         {!ingest ? (
-          <div className="h-56 rounded-2xl border border-navy/10 bg-navy/[0.03]">
+          <div className="h-56 rounded-2xl border border-ink/10 bg-ink/[0.03]">
             <EmptyState
               icon={<IconLayers className="h-5 w-5" />}
               title="No swath loaded"
@@ -195,7 +195,7 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, onSample,
                  from a simulated track must never read as survey-grade. */
               <div className="mb-3 rounded-xl border border-aqua/40 bg-aqua/10 px-4 py-2.5">
                 <p className="label text-azure">Real Sonar · Held-Out Sample</p>
-                <p className="mt-1 font-serif text-xs leading-relaxed text-navy/70">
+                <p className="mt-1 font-serif text-xs leading-relaxed text-ink/70">
                   Genuine survey imagery the detector never saw during training.
                   The image carries no navigation, so the track and coordinates
                   are simulated for illustration — the detections are real.
@@ -204,7 +204,7 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, onSample,
             )}
             <div
               ref={frameRef}
-              className="relative h-64 select-none overflow-hidden rounded-2xl bg-navy ring-1 ring-navy/15 md:h-72"
+              className="relative h-64 select-none overflow-hidden rounded-2xl bg-navy ring-1 ring-ink/15 md:h-72"
             >
               {/* Filtered (right of the handle) sits underneath. */}
               <img
@@ -226,13 +226,13 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, onSample,
                 />
               </div>
 
-              <span className="pointer-events-none absolute left-3 top-3 rounded-full bg-navy/85 px-2.5 py-1 font-mono text-2xs font-semibold uppercase tracking-label text-coral">
+              <span className="pointer-events-none absolute left-3 top-3 rounded-full bg-cream/85 px-2.5 py-1 font-mono text-2xs font-semibold uppercase tracking-label text-coral">
                 Raw
               </span>
-              <span className="pointer-events-none absolute right-3 top-3 rounded-full bg-navy/85 px-2.5 py-1 font-mono text-2xs font-semibold uppercase tracking-label text-aqua">
+              <span className="pointer-events-none absolute right-3 top-3 rounded-full bg-cream/85 px-2.5 py-1 font-mono text-2xs font-semibold uppercase tracking-label text-aqua">
                 Filtered
               </span>
-              <span className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-navy/85 px-2.5 py-1 font-mono text-2xs text-cream/60">
+              <span className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-cream/85 px-2.5 py-1 font-mono text-2xs text-ink/60">
                 nadir ▲ centre-frame
               </span>
 
@@ -252,7 +252,7 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, onSample,
                   if (e.key === 'ArrowRight') setSplit((s) => Math.min(98, s + 4))
                 }}
               >
-                <span className="absolute left-1/2 top-1/2 grid h-8 w-8 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-aqua text-navy shadow-lg">
+                <span className="absolute left-1/2 top-1/2 grid h-8 w-8 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-aqua text-ink shadow-lg">
                   <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
                     <path d="m10 8-4 4 4 4M14 8l4 4-4 4" />
                   </svg>
@@ -275,8 +275,8 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, onSample,
 
             <div className="mt-3">
               <div className="flex items-center justify-between">
-                <span className="label text-navy/40">Speckle Suppression</span>
-                <span className="font-mono text-2xs text-navy/50">
+                <span className="label text-ink/40">Speckle Suppression</span>
+                <span className="font-mono text-2xs text-ink/50">
                   {stats.speckle_index_before.toFixed(3)} → {stats.speckle_index_after.toFixed(3)}
                 </span>
               </div>

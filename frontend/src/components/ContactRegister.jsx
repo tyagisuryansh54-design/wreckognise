@@ -8,7 +8,7 @@ const REVIEW_TONES = {
   flagged: 'text-coral',
   under_review: 'text-amber',
   confirmed: 'text-aqua',
-  dismissed: 'text-navy/35',
+  dismissed: 'text-ink/35',
 }
 
 const FILTERS = [
@@ -49,7 +49,7 @@ export default function ContactRegister({ detections, selected, onSelect, summar
             : 'Run detection to populate the register'
         }
         action={
-          <span className="hidden shrink-0 rounded-full bg-navy/5 p-2.5 text-azure sm:block">
+          <span className="hidden shrink-0 rounded-full bg-ink/5 p-2.5 text-azure sm:block">
             <IconTarget className="h-5 w-5" />
           </span>
         }
@@ -68,11 +68,11 @@ export default function ContactRegister({ detections, selected, onSelect, summar
               onClick={() => setFilter(option.id)}
               aria-pressed={filter === option.id}
               className={`flex-1 rounded-full px-2.5 py-1.5 font-mono text-2xs font-semibold uppercase tracking-wide transition-colors ${
-                filter === option.id ? 'bg-navy text-cream' : 'text-navy/50 hover:text-navy'
+                filter === option.id ? 'bg-navy text-ink' : 'text-ink/50 hover:text-ink'
               }`}
             >
               {option.label}
-              <span className={filter === option.id ? 'ml-1.5 text-aqua' : 'ml-1.5 text-navy/35'}>
+              <span className={filter === option.id ? 'ml-1.5 text-aqua' : 'ml-1.5 text-ink/35'}>
                 {count}
               </span>
             </button>
@@ -116,8 +116,8 @@ export default function ContactRegister({ detections, selected, onSelect, summar
                 onClick={() => onSelect(d.detection_id)}
                 className={`w-full rounded-xl border px-3.5 py-3 text-left transition-all ${
                   active
-                    ? `border-transparent bg-navy text-cream ring-2 ${style.ring}`
-                    : 'border-navy/10 bg-white/70 hover:border-navy/25 hover:bg-white'
+                    ? `border-transparent bg-navy text-ink ring-2 ${style.ring}`
+                    : 'border-ink/10 bg-sand hover:border-ink/25 hover:bg-navy-soft'
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
@@ -126,7 +126,7 @@ export default function ContactRegister({ detections, selected, onSelect, summar
                       <span className={`h-2 w-2 shrink-0 rounded-full ${style.dot}`} />
                       <p
                         className={`truncate font-display text-sm font-semibold ${
-                          active ? 'text-cream' : 'text-navy'
+                          active ? 'text-ink' : 'text-ink'
                         }`}
                       >
                         {classLabel(d.label)}
@@ -134,7 +134,7 @@ export default function ContactRegister({ detections, selected, onSelect, summar
                     </div>
                     <p
                       className={`mt-0.5 font-mono text-2xs ${
-                        active ? 'text-cream/40' : 'text-navy/40'
+                        active ? 'text-ink/40' : 'text-ink/40'
                       }`}
                     >
                       {d.detection_id}
@@ -157,7 +157,7 @@ export default function ContactRegister({ detections, selected, onSelect, summar
                       <p
                         className={`font-mono text-2xs font-semibold ${
                           REVIEW_TONES[d.review_status] ??
-                          (active ? 'text-cream/40' : 'text-navy/40')
+                          (active ? 'text-ink/40' : 'text-ink/40')
                         }`}
                       >
                         {REVIEW_LABELS[d.review_status]}
@@ -170,24 +170,24 @@ export default function ContactRegister({ detections, selected, onSelect, summar
                   <Meter
                     value={d.confidence}
                     colour={active ? 'bg-aqua' : 'bg-azure'}
-                    track={active ? 'bg-cream/12' : 'bg-navy/8'}
+                    track={active ? 'bg-cream/12' : 'bg-ink/8'}
                     height="h-1"
                   />
                 </div>
 
                 <div
                   className={`mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-2xs ${
-                    active ? 'text-cream/55' : 'text-navy/50'
+                    active ? 'text-ink/55' : 'text-ink/50'
                   }`}
                 >
                   <span className="tabular-nums">
                     {d.geo.latitude.toFixed(5)}, {d.geo.longitude.toFixed(5)}
                   </span>
-                  <span className={active ? 'text-cream/25' : 'text-navy/25'}>·</span>
+                  <span className={active ? 'text-ink/25' : 'text-ink/25'}>·</span>
                   <span>
                     {d.length_m}×{d.width_m} m
                   </span>
-                  <span className={active ? 'text-cream/25' : 'text-navy/25'}>·</span>
+                  <span className={active ? 'text-ink/25' : 'text-ink/25'}>·</span>
                   <span>±{d.geo.horizontal_uncertainty_m.toFixed(2)} m</span>
                 </div>
               </button>

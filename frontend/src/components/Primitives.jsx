@@ -28,7 +28,7 @@ export function CardHeader({ eyebrow, title, meta, dark = false, action }) {
         )}
         <h2
           className={`mt-1.5 font-display text-xl font-semibold leading-tight md:text-2xl ${
-            dark ? 'text-cream' : 'text-navy'
+            dark ? 'text-ink' : 'text-ink'
           }`}
         >
           {title}
@@ -36,7 +36,7 @@ export function CardHeader({ eyebrow, title, meta, dark = false, action }) {
         {meta && (
           <p
             className={`mt-1 font-serif text-sm ${
-              dark ? 'text-cream/55' : 'text-navy/55'
+              dark ? 'text-ink/55' : 'text-ink/55'
             }`}
           >
             {meta}
@@ -52,16 +52,16 @@ export function CardHeader({ eyebrow, title, meta, dark = false, action }) {
 export function Stat({ label, value, unit, dark = false, accent, hint }) {
   return (
     <div className="min-w-0">
-      <p className={`label ${dark ? 'text-cream/40' : 'text-navy/40'}`}>{label}</p>
+      <p className={`label ${dark ? 'text-ink/40' : 'text-ink/40'}`}>{label}</p>
       <p
-        className={`stat mt-1 truncate ${accent ?? (dark ? 'text-cream' : 'text-navy')}`}
+        className={`stat mt-1 truncate ${accent ?? (dark ? 'text-ink' : 'text-ink')}`}
         title={hint ?? `${value}${unit ? ` ${unit}` : ''}`}
       >
         {value}
         {unit && (
           <span
             className={`ml-1 font-mono text-xs font-medium ${
-              dark ? 'text-cream/40' : 'text-navy/40'
+              dark ? 'text-ink/40' : 'text-ink/40'
             }`}
           >
             {unit}
@@ -77,18 +77,18 @@ export function Row({ label, value, mono = true, dark = false, accent }) {
   return (
     <div
       className={`flex items-baseline justify-between gap-3 border-b py-1.5 last:border-0 ${
-        dark ? 'border-cream/8' : 'border-navy/8'
+        dark ? 'border-ink/8' : 'border-ink/8'
       }`}
     >
       <span
-        className={`shrink-0 font-sans text-xs ${dark ? 'text-cream/45' : 'text-navy/50'}`}
+        className={`shrink-0 font-sans text-xs ${dark ? 'text-ink/45' : 'text-ink/50'}`}
       >
         {label}
       </span>
       <span
         className={`truncate text-right text-xs font-medium ${
           mono ? 'font-mono tabular-nums' : 'font-sans'
-        } ${accent ?? (dark ? 'text-cream/90' : 'text-navy')}`}
+        } ${accent ?? (dark ? 'text-ink/90' : 'text-ink')}`}
         title={String(value)}
       >
         {value}
@@ -112,7 +112,7 @@ export function Badge({ className = '', children, pulse = false }) {
 }
 
 /** Horizontal meter used for confidence, coverage and class distribution. */
-export function Meter({ value, max = 1, colour = 'bg-aqua', track = 'bg-navy/10', height = 'h-1.5' }) {
+export function Meter({ value, max = 1, colour = 'bg-aqua', track = 'bg-ink/10', height = 'h-1.5' }) {
   const width = Math.max(0, Math.min(100, (value / max) * 100))
   return (
     <div className={`w-full overflow-hidden rounded-full ${track} ${height}`}>
@@ -129,21 +129,21 @@ export function EmptyState({ icon, title, body, action, dark = false }) {
     <div className="flex h-full flex-col items-center justify-center px-6 py-10 text-center">
       <div
         className={`mb-3 grid h-11 w-11 place-items-center rounded-full ${
-          dark ? 'bg-cream/8 text-aqua' : 'bg-navy/5 text-azure'
+          dark ? 'bg-cream/8 text-aqua' : 'bg-ink/5 text-azure'
         }`}
       >
         {icon}
       </div>
       <p
         className={`font-display text-base font-semibold ${
-          dark ? 'text-cream/85' : 'text-navy/85'
+          dark ? 'text-ink/85' : 'text-ink/85'
         }`}
       >
         {title}
       </p>
       <p
         className={`mt-1 max-w-xs font-serif text-sm ${
-          dark ? 'text-cream/45' : 'text-navy/50'
+          dark ? 'text-ink/45' : 'text-ink/50'
         }`}
       >
         {body}
@@ -158,7 +158,7 @@ export function ProgressBar({ value, dark = false }) {
   if (!value) return null
   return (
     <div
-      className={`fixed inset-x-0 top-0 z-50 h-0.5 ${dark ? 'bg-cream/10' : 'bg-navy/8'}`}
+      className={`fixed inset-x-0 top-0 z-50 h-0.5 ${dark ? 'bg-cream/10' : 'bg-ink/8'}`}
       role="progressbar"
       aria-valuenow={value}
       aria-valuemin={0}

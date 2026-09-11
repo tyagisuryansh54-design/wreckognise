@@ -142,3 +142,15 @@ export const IconChip = (p) => (
     <path d="M10 3v4M14 3v4M10 17v4M14 17v4M3 10h4M3 14h4M17 10h4M17 14h4" />
   </Svg>
 )
+
+export const IconMenu = (p) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" {...p}>
+    <path d="M4 7h16M4 12h16M4 17h16" strokeLinecap="round" />
+  </svg>
+)
+
+export const IconArrowRight = (p) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...p}>
+    <path d="M5 12h14M13 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)

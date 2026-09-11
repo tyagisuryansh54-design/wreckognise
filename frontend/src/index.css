@@ -25,16 +25,21 @@
   }
 
   body {
-    @apply bg-cream font-sans text-navy antialiased;
-    /* A whisper of sand grain keeps the 60% surface from reading as flat white. */
+    @apply bg-cream font-sans text-ink antialiased;
+    /*
+     * The faint graph paper behind everything is the single strongest cue in
+     * the reference: a neutral black ground ruled at 1px, barely above the
+     * background. It replaces the old cream grain, which read as warm paper.
+     */
     background-image:
-      radial-gradient(circle at 12% 8%, rgba(0, 180, 216, 0.05) 0%, transparent 42%),
-      radial-gradient(circle at 88% 4%, rgba(0, 119, 182, 0.05) 0%, transparent 38%);
+      linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
+    background-size: 52px 52px;
     background-attachment: fixed;
   }
 
   ::selection {
-    @apply bg-aqua/30 text-navy;
+    @apply bg-azure/25 text-ink;
   }
 
   /* Slim, on-brand scrollbars inside dark bento cards. */
@@ -46,92 +51,154 @@
     background: rgba(255, 255, 255, 0.04);
   }
   .scroll-slim::-webkit-scrollbar-thumb {
-    background: rgba(0, 180, 216, 0.34);
+    background: rgba(0, 255, 45, 0.28);
     border-radius: 999px;
   }
   .scroll-slim::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 180, 216, 0.6);
+    background: rgba(0, 255, 45, 0.5);
   }
 
   :focus-visible {
-    outline: 2px solid var(--aqua);
+    outline: 2px solid #00FF2D;
     outline-offset: 2px;
     border-radius: 4px;
   }
 }
 
 @layer components {
-  /* --- Bento primitives ------------------------------------------- */
+  /* --- Card primitives --------------------------------------------
+     Flat. The reference separates surfaces with a hairline and a couple of
+     percent of lift, never with a shadow -- elevation on a black ground just
+     reads as haze. */
   .bento {
-    @apply relative overflow-hidden rounded-bento shadow-bento transition-all duration-300;
+    @apply relative overflow-hidden rounded-bento border border-shell
+           transition-[transform,border-color,background-color] duration-200 ease-out;
   }
   .bento-light {
-    @apply bento border border-shell/70 bg-white/70 backdrop-blur-sm;
+    @apply bento border border-shell bg-sand;
   }
   .bento-dark {
-    @apply bento bg-navy text-cream shadow-inset-line;
+    @apply bento border border-shell bg-navy text-ink;
   }
   .bento-teal {
-    @apply bento bg-teal text-cream shadow-inset-line;
+    @apply bento border border-shell bg-teal text-ink;
   }
+  /* Card hover, as the reference does on its project cards: the surface lifts a
+     little, the hairline takes the accent, and a rule wipes across the top.
+     Transform and colour only -- nothing that forces a layout pass, so a grid
+     of ten cards stays smooth. */
   .bento:hover {
-    @apply shadow-bento-lift;
+    @apply -translate-y-[3px] border-azure/40 bg-navy-soft;
+  }
+  .bento::after {
+    content: '';
+    @apply pointer-events-none absolute inset-x-0 top-0 h-px origin-left scale-x-0
+           bg-azure/70 transition-transform duration-300 ease-out;
+  }
+  .bento:hover::after {
+    @apply scale-x-100;
   }
 
-  /* --- Typography ------------------------------------------------- */
+  /* Same idea at button scale. */
+  .btn:active {
+    @apply translate-y-px;
+  }
+
+  /* --- Typography -------------------------------------------------- */
   .label {
-    @apply font-mono text-2xs font-medium uppercase tracking-label;
+    @apply font-mono text-2xs font-medium uppercase tracking-label text-ink-dim;
   }
   .stat {
     @apply font-mono text-2xl font-semibold tabular-nums md:text-3xl;
   }
+  /* Code-comment decoration, straight from the reference. */
+  .comment::before { content: '/* '; }
+  .comment::after  { content: ' */'; }
+  .comment {
+    @apply font-mono text-2xs tracking-label text-azure;
+  }
 
-  /* --- Buttons ---------------------------------------------------- */
+  /* --- Buttons -----------------------------------------------------
+     Square-ish, not pills: the reference button is a 4px-radius block with
+     mono type and the ground colour as its foreground. */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5
-           font-mono text-xs font-semibold uppercase tracking-label
-           transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-45;
+    @apply inline-flex items-center justify-center gap-2 rounded px-5 py-2.5
+           font-mono text-xs font-semibold tracking-label
+           transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40;
   }
   .btn-primary {
-    @apply btn bg-azure text-white hover:bg-aqua hover:text-navy
-           hover:shadow-[0_10px_28px_-8px_rgba(0,180,216,0.7)];
+    @apply btn bg-azure text-cream hover:bg-aqua hover:text-ink;
   }
   .btn-dark {
-    @apply btn bg-navy text-cream hover:bg-navy-soft;
+    @apply btn border border-shell bg-navy text-ink hover:border-ink/25;
   }
   .btn-ghost {
-    @apply btn border border-navy/18 bg-transparent text-navy hover:border-azure hover:text-azure;
+    @apply btn border border-shell bg-transparent text-ink-dim
+           hover:border-azure hover:text-azure;
   }
   .btn-ghost-light {
-    @apply btn border border-cream/25 bg-transparent text-cream hover:border-aqua hover:text-aqua;
+    @apply btn border border-shell bg-transparent text-ink-dim
+           hover:border-azure hover:text-azure;
   }
   .btn-alert {
-    @apply btn bg-coral text-white hover:bg-sunset;
+    @apply btn bg-coral text-cream hover:bg-sunset;
   }
 
-  /* --- Badges ----------------------------------------------------- */
+  /* --- Badges ------------------------------------------------------ */
   .badge {
-    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1
+    @apply inline-flex items-center gap-1.5 rounded px-2.5 py-1
            font-mono text-2xs font-semibold uppercase tracking-label;
   }
 
-  /* --- Sonar chrome ----------------------------------------------- */
+  /* --- Sonar chrome ------------------------------------------------ */
   .grid-overlay {
     background-image:
-      linear-gradient(rgba(0, 180, 216, 0.11) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0, 180, 216, 0.11) 1px, transparent 1px);
+      linear-gradient(rgba(0, 255, 45, 0.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 255, 45, 0.07) 1px, transparent 1px);
     background-size: 34px 34px;
   }
 
   .skeleton {
     background: linear-gradient(
       90deg,
-      rgba(10, 25, 47, 0.05) 25%,
-      rgba(10, 25, 47, 0.11) 37%,
-      rgba(10, 25, 47, 0.05) 63%
+      rgba(255, 255, 255, 0.03) 25%,
+      rgba(255, 255, 255, 0.07) 37%,
+      rgba(255, 255, 255, 0.03) 63%
     );
     background-size: 600px 100%;
     @apply animate-shimmer rounded;
+  }
+
+  /* --- Entrance ----------------------------------------------------
+     Staggered fade-up, as the reference does on every page. Depth is capped
+     at eight: past that the last card arrives late enough to feel broken
+     rather than choreographed. */
+  .stagger > * {
+    @apply animate-fade-up;
+  }
+  .stagger > *:nth-child(1) { animation-delay: 0ms; }
+  .stagger > *:nth-child(2) { animation-delay: 60ms; }
+  .stagger > *:nth-child(3) { animation-delay: 120ms; }
+  .stagger > *:nth-child(4) { animation-delay: 180ms; }
+  .stagger > *:nth-child(5) { animation-delay: 240ms; }
+  .stagger > *:nth-child(6) { animation-delay: 300ms; }
+  .stagger > *:nth-child(n + 7) { animation-delay: 360ms; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bento:hover {
+    transform: none !important;
+  }
+  .bento::after,
+  .bento:hover::after {
+    transition: none !important;
+  }
+  .stagger > *,
+  .animate-fade-up,
+  .animate-caret {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
   }
 }
 

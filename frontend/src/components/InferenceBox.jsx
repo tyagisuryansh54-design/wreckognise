@@ -89,9 +89,9 @@ export default function InferenceBox({
       />
 
       {/* --- controls --- */}
-      <div className="mt-5 flex flex-wrap items-end gap-4 rounded-2xl bg-cream/5 p-4 ring-1 ring-cream/10">
+      <div className="mt-5 flex flex-wrap items-end gap-4 rounded-2xl bg-cream/5 p-4 ring-1 ring-ink/10">
         <label className="min-w-[11rem] flex-1">
-          <span className="label text-cream/40">
+          <span className="label text-ink/40">
             Confidence Threshold · <span className="text-aqua">{confidence.toFixed(2)}</span>
           </span>
           <input
@@ -119,7 +119,7 @@ export default function InferenceBox({
       {/* --- annotated swath with interactive overlay --- */}
       <div className="mt-5">
         {!inference ? (
-          <div className="h-56 rounded-2xl bg-cream/[0.04] ring-1 ring-cream/10">
+          <div className="h-56 rounded-2xl bg-cream/[0.04] ring-1 ring-ink/10">
             <EmptyState
               dark
               icon={<IconTarget className="h-5 w-5" />}
@@ -136,7 +136,7 @@ export default function InferenceBox({
             ref={frameRef}
             onMouseMove={onMove}
             onMouseLeave={() => setCursor(null)}
-            className="relative overflow-hidden rounded-2xl ring-1 ring-cream/15"
+            className="relative overflow-hidden rounded-2xl ring-1 ring-ink/15"
           >
             <img
               src={assetUrl(inference.annotated_png)}
@@ -222,7 +222,7 @@ export default function InferenceBox({
               />
             )}
 
-            <figcaption className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-navy/90 to-transparent px-3 py-2 font-mono text-2xs text-cream/60">
+            <figcaption className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between bg-gradient-to-t from-navy/90 to-transparent px-3 py-2 font-mono text-2xs text-ink/60">
               <span>
                 {metrics.simulated
                   ? 'CV fallback · unvalidated'
@@ -235,14 +235,14 @@ export default function InferenceBox({
       </div>
 
       {/* --- live pixel -> lat/long solver --- */}
-      <div className="mt-5 rounded-2xl bg-teal/70 p-4 ring-1 ring-cream/10">
+      <div className="mt-5 rounded-2xl bg-teal/70 p-4 ring-1 ring-ink/10">
         <div className="flex items-center justify-between">
           <p className="label text-aqua">Pixel → Lat/Long Solver</p>
-          {probe && <span className="label text-cream/35">live probe</span>}
+          {probe && <span className="label text-ink/35">live probe</span>}
         </div>
 
         {!readout ? (
-          <p className="mt-3 font-serif text-sm text-cream/45">
+          <p className="mt-3 font-serif text-sm text-ink/45">
             Run detection, then move the cursor across the swath to resolve any pixel
             to a WGS-84 coordinate in real time.
           </p>
@@ -250,18 +250,18 @@ export default function InferenceBox({
           <>
             <div className="mt-3 grid grid-cols-2 gap-4">
               <div>
-                <p className="label text-cream/40">Latitude</p>
+                <p className="label text-ink/40">Latitude</p>
                 <p className="mt-1 font-mono text-lg font-semibold tabular-nums text-aqua">
                   {readout.latitude.toFixed(6)}°
                 </p>
-                <p className="font-mono text-2xs text-cream/40">{toDMS(readout.latitude, 'lat')}</p>
+                <p className="font-mono text-2xs text-ink/40">{toDMS(readout.latitude, 'lat')}</p>
               </div>
               <div>
-                <p className="label text-cream/40">Longitude</p>
+                <p className="label text-ink/40">Longitude</p>
                 <p className="mt-1 font-mono text-lg font-semibold tabular-nums text-aqua">
                   {readout.longitude.toFixed(6)}°
                 </p>
-                <p className="font-mono text-2xs text-cream/40">{toDMS(readout.longitude, 'lon')}</p>
+                <p className="font-mono text-2xs text-ink/40">{toDMS(readout.longitude, 'lon')}</p>
               </div>
             </div>
 
@@ -296,10 +296,10 @@ export default function InferenceBox({
             </dl>
 
             <details className="mt-3 group">
-              <summary className="label cursor-pointer list-none text-cream/40 transition-colors hover:text-aqua">
+              <summary className="label cursor-pointer list-none text-ink/40 transition-colors hover:text-aqua">
                 ▸ Show solve trace
               </summary>
-              <pre className="scroll-slim mt-2 max-h-28 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-navy/70 p-3 font-mono text-2xs leading-relaxed text-cream/60">
+              <pre className="scroll-slim mt-2 max-h-28 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-cream/70 p-3 font-mono text-2xs leading-relaxed text-ink/60">
                 {readout.formula}
               </pre>
             </details>
@@ -330,8 +330,8 @@ export default function InferenceBox({
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <div>
                   <div className="flex items-center justify-between">
-                    <span className="label text-cream/40">Precision</span>
-                    <span className="font-mono text-2xs text-cream/60">
+                    <span className="label text-ink/40">Precision</span>
+                    <span className="font-mono text-2xs text-ink/60">
                       {metrics.precision.toFixed(3)}
                     </span>
                   </div>
@@ -341,8 +341,8 @@ export default function InferenceBox({
                 </div>
                 <div>
                   <div className="flex items-center justify-between">
-                    <span className="label text-cream/40">Recall</span>
-                    <span className="font-mono text-2xs text-cream/60">
+                    <span className="label text-ink/40">Recall</span>
+                    <span className="font-mono text-2xs text-ink/60">
                       {metrics.recall.toFixed(3)}
                     </span>
                   </div>
@@ -352,7 +352,7 @@ export default function InferenceBox({
                 </div>
               </div>
               {metrics.validated_on && (
-                <p className="mt-2 font-serif text-2xs text-cream/40">
+                <p className="mt-2 font-serif text-2xs text-ink/40">
                   Measured on {metrics.validated_on}
                 </p>
               )}
@@ -360,7 +360,7 @@ export default function InferenceBox({
           ) : (
             <div className="mt-4 rounded-xl border border-amber/30 bg-amber/10 px-4 py-3">
               <p className="label text-amber">Unvalidated Engine</p>
-              <p className="mt-1 font-serif text-xs leading-relaxed text-cream/60">
+              <p className="mt-1 font-serif text-xs leading-relaxed text-ink/60">
                 No trained weights are loaded, so this run has no measured
                 detection accuracy. Contacts are candidates for human review,
                 not a validated result.
@@ -386,11 +386,11 @@ export default function InferenceBox({
           </dl>
 
           {selected && (
-            <div className="mt-4 rounded-xl bg-cream/5 px-4 py-3 ring-1 ring-cream/10">
-              <p className="label text-cream/40">Selected Contact · Acoustic Geometry</p>
-              <p className="mt-1 font-display text-base font-semibold text-cream">
+            <div className="mt-4 rounded-xl bg-cream/5 px-4 py-3 ring-1 ring-ink/10">
+              <p className="label text-ink/40">Selected Contact · Acoustic Geometry</p>
+              <p className="mt-1 font-display text-base font-semibold text-ink">
                 {classLabel(selected.label)}{' '}
-                <span className="font-mono text-xs font-normal text-cream/40">
+                <span className="font-mono text-xs font-normal text-ink/40">
                   {selected.detection_id}
                 </span>
               </p>
