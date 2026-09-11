@@ -1,0 +1,131 @@
+/**
+ * Design tokens and keyframes for the ASCII console.
+ *
+ * Scoped under `.console-root` rather than :root so the existing cream/navy
+ * dashboard is untouched by any of it -- the two designs coexist in one bundle.
+ *
+ * The mono stack is deliberate and load-bearing: this project's Tailwind
+ * `font-mono` is Space Grotesk, a PROPORTIONAL sans. ASCII art set in it has a
+ * different width on every line and the drawing collapses.
+ */
+
+.console-root {
+  --obsidian: #030712;
+  --panel: #070d18;
+  --edge: rgba(148, 187, 216, 0.14);
+  --edge-hot: rgba(0, 214, 255, 0.55);
+  --ink: #d7e3ee;
+  --ink-dim: #6b7f93;
+  --cyan: #00d6ff;
+  --cyan-soft: rgba(0, 214, 255, 0.12);
+  --amber: #ffb703;
+  --coral: #ff6b6b;
+
+  --mono: ui-monospace, "JetBrains Mono", SFMono-Regular, "SF Mono", Menlo,
+    Consolas, "Liberation Mono", monospace;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+
+  background: var(--obsidian);
+  color: var(--ink);
+  font-family: var(--sans);
+}
+
+.console-root .mono {
+  font-family: var(--mono);
+  font-variant-ligatures: none;
+}
+
+/* --- keyframes ------------------------------------------------------------ */
+
+@keyframes con-twinkle {
+  0%, 100% { opacity: 0.15; }
+  50%      { opacity: 0.9; }
+}
+
+@keyframes con-pulse-ring {
+  0%   { transform: scale(0.9); opacity: 0.7; }
+  70%  { transform: scale(2.1); opacity: 0; }
+  100% { transform: scale(2.1); opacity: 0; }
+}
+
+/* Data pulse travelling along the ship's spine. */
+@keyframes con-sweep {
+  0%   { transform: translateX(-120%); opacity: 0; }
+  12%  { opacity: 1; }
+  88%  { opacity: 1; }
+  100% { transform: translateX(120%); opacity: 0; }
+}
+
+@keyframes con-flicker {
+  0%, 96%, 100% { opacity: 1; }
+  97%           { opacity: 0.72; }
+  98%           { opacity: 1; }
+  99%           { opacity: 0.85; }
+}
+
+@keyframes con-caret {
+  0%, 49%   { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+
+@keyframes con-scan {
+  0%   { transform: translateY(-100%); }
+  100% { transform: translateY(700%); }
+}
+
+@keyframes con-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes con-bar {
+  0%   { transform: scaleX(0); }
+  100% { transform: scaleX(1); }
+}
+
+.con-twinkle  { animation: con-twinkle 2.6s ease-in-out infinite; }
+.con-caret    { animation: con-caret 1.05s step-end infinite; }
+.con-flicker  { animation: con-flicker 7s linear infinite; }
+.con-rise     { animation: con-rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.con-sweep    { animation: con-sweep 3.6s linear infinite; }
+
+.con-glow      { text-shadow: 0 0 10px rgba(0, 214, 255, 0.45); }
+.con-glow-soft { text-shadow: 0 0 6px rgba(0, 214, 255, 0.3); }
+
+/* Razor border that lights on hover, used by every interactive surface. */
+.con-edge {
+  border: 1px solid var(--edge);
+  transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+.con-edge:hover {
+  border-color: var(--edge-hot);
+  box-shadow: 0 0 0 1px rgba(0, 214, 255, 0.14), 0 0 22px -6px rgba(0, 214, 255, 0.5);
+}
+
+/* Tactile press: buttons sink a pixel rather than just changing colour. */
+.con-btn:active { transform: translateY(1px); }
+
+.con-scanlines::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(0, 214, 255, 0.05) 0px,
+    rgba(0, 214, 255, 0.05) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+/* Everything above is decoration. Honour a reduced-motion preference. */
+@media (prefers-reduced-motion: reduce) {
+  .console-root *,
+  .console-root *::before,
+  .console-root *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
