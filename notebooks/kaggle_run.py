@@ -41,6 +41,7 @@ IMGSZ = int(os.environ.get("WRECK_IMGSZ", "640"))
 # The number to beat. Measured on CPU for the 512 px combined model; printed at
 # the end so the deploy/keep decision is made by the script, not by eye.
 CPU_CROSS_DATASET = 0.349
+RESET = os.environ.get("WRECK_RESET") == "1"
 rng = random.Random(1337)
 
 
@@ -86,7 +87,16 @@ def find_ai4shipwrecks(root=Path("/kaggle/input")):
 
 def fetch() -> Path | None:
     step("2/6  fetch datasets")
-    if not Path("/kaggle/working/sctd").exists():
+    sctd = Path("/kaggle/working/sctd")
+    # Guard on CONTENT, not on the directory existing. /kaggle/working survives
+    # across sessions, so a run that died mid-extract leaves an empty directory
+    # that a path check would skip forever -- and the failure then surfaces
+    # deep inside ultralytics as "no images", far from its cause.
+    if RESET or not any(sctd.rglob("*.jpg")):
+        if sctd.exists():
+            print("  incomplete SCTD extract, redoing")
+            shutil.rmtree(sctd, ignore_errors=True)
+        shutil.rmtree("/kaggle/working/sctd_repo", ignore_errors=True)
         print("  cloning SCTD (needs Internet: On)...")
         subprocess.run(
             ["git", "clone", "-q", "--depth", "1",
@@ -149,9 +159,14 @@ def parse_voc(path: Path):
 
 def build(ai4: Path | None) -> None:
     step("3/6  build YOLO dataset")
-    if (OUT / "data.yaml").is_file():
+    built = (OUT / "data.yaml").is_file() and any((OUT / "images" / "train").glob("*.jpg"))
+    if RESET and OUT.exists():
+        shutil.rmtree(OUT, ignore_errors=True)
+        built = False
+    if built:
         print("  already built (delete /kaggle/working/dataset to rebuild)")
     else:
+        shutil.rmtree(OUT, ignore_errors=True)   # a half-built corpus is worse than none
         import cv2
         import numpy as np
 
@@ -239,8 +254,23 @@ def build(ai4: Path | None) -> None:
             f"path: {OUT}\ntrain: images/train\nval: images/val\n\nnames:\n"
             + "".join(f"  {i}: {c}\n" for i, c in enumerate(CLASSES)))
 
-    print("  TOTAL train:", len(list((OUT / "images" / "train").glob("*.jpg"))),
-          "| val:", len(list((OUT / "images" / "val").glob("*.jpg"))))
+    n_train = len(list((OUT / "images" / "train").glob("*.jpg")))
+    n_val = len(list((OUT / "images" / "val").glob("*.jpg")))
+    print("  TOTAL train:", n_train, "| val:", n_val)
+
+    if n_train == 0:
+        # Stop at the cause. Left alone, this surfaces eight frames deep inside
+        # the trainer as "Error loading data from .../images/train", which says
+        # nothing about which dataset failed to arrive.
+        sctd = Path("/kaggle/working/sctd")
+        print()
+        print("  BUILD PRODUCED NO TRAINING IMAGES -- stopping here rather than")
+        print("  failing later inside the trainer.")
+        print("    SCTD .jpg found :", len(list(sctd.rglob("*.jpg"))))
+        print("    SCTD .xml found :", len(list(sctd.rglob("*.xml"))))
+        print("    AI4Shipwrecks   :", "yes" if ai4 else "no")
+        print("  Re-run with a clean slate:  !WRECK_RESET=1 python run.py")
+        raise SystemExit(1)
 
 
 # ------------------------------------------------------------------ 4. train
