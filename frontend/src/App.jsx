@@ -26,6 +26,7 @@ export default function App() {
     stage,
     busy,
     progress,
+    waking,
     error,
     clearError,
     loadDemo,
@@ -50,6 +51,33 @@ export default function App() {
           onUpload={() => uploadRef.current?.click()}
           onReport={() => generateReport('markdown')}
         />
+
+        {/*
+          A cold start is not a failure, and showing it as one taught visitors
+          the site was broken when it was merely asleep. The free instance
+          suspends after 15 minutes idle and takes about a minute to boot;
+          say so, and let the retry in api.js finish the job.
+        */}
+        {waking && !error && (
+          <div
+            role="status"
+            className="mt-4 flex items-start gap-3 rounded-2xl border border-amber/35 bg-amber/10 px-5 py-4 animate-rise-in"
+          >
+            <span className="mt-1 shrink-0">
+              <span className="block h-2.5 w-2.5 animate-pulse rounded-full bg-amber" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="font-mono text-2xs font-semibold uppercase tracking-label text-sunset">
+                Waking the Inference Backend
+              </p>
+              <p className="mt-1 font-serif text-sm text-navy/70">
+                The API sleeps when idle to stay within the free hosting tier. First
+                request after a quiet spell takes up to a minute while it boots — this
+                will clear on its own, no action needed.
+              </p>
+            </div>
+          </div>
+        )}
 
         {error && (
           <div

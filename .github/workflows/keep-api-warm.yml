@@ -1,0 +1,25 @@
+# The API runs on a free instance that suspends after 15 minutes idle, and the
+# cold boot is ~45 seconds. During a live demo that reads as a broken site.
+# A cheap health ping every 10 minutes keeps it resident.
+#
+# Free tier allows 750 instance-hours a month and a always-on month is 744, so
+# this fits -- but if you stop needing it, disable the workflow in the Actions
+# tab rather than leaving it running indefinitely.
+
+name: Keep API warm
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping health endpoint
+        run: |
+          # --max-time covers a cold boot; a miss is not worth failing the run
+          # over, since the next ping is ten minutes away.
+          curl -sS --max-time 90 -o /dev/null -w 'HTTP %{http_code} in %{time_total}s\n' \
+            https://wreckognise-api.onrender.com/api/health || echo "ping missed"

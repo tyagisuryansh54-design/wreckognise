@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { api } from '../utils/api'
+import { api, onBackendWaking } from '../utils/api'
 
 /**
  * Single owner of the survey pipeline's state.
@@ -20,6 +20,9 @@ export function useSurvey() {
   const [busy, setBusy] = useState(null) // 'ingest' | 'detect' | 'report' | null
   const [error, setError] = useState(null)
   const [progress, setProgress] = useState(0)
+  const [waking, setWaking] = useState(false)
+
+  useEffect(() => onBackendWaking(setWaking), [])
 
   useEffect(() => {
     // Only a well-formed health payload counts as "online". Anything else --
@@ -188,6 +191,7 @@ export function useSurvey() {
     stage,
     busy,
     progress,
+    waking,
     error,
     clearError: () => setError(null),
     loadDemo,

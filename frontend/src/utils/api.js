@@ -7,6 +7,22 @@
 
 const BASE = import.meta.env.VITE_API_BASE ?? ''
 
+/**
+ * The hosted backend runs on a free instance that is suspended after 15
+ * minutes without traffic. The first request afterwards has to wait for a cold
+ * boot -- measured at 43 seconds -- during which the platform either holds the
+ * connection open or answers 502/503. Both used to surface as "is uvicorn
+ * running on port 8000?", which is a local-development question shown to a
+ * visitor on the public site.
+ *
+ * So: wait long enough for a boot, retry the failures a boot actually causes,
+ * and let the UI say the backend is waking rather than that it is broken.
+ */
+const REQUEST_TIMEOUT_MS = 90_000
+const NETWORK_RETRIES = 3
+const RETRY_BACKOFF_MS = [2000, 4000, 7000]
+const COLD_START_STATUSES = new Set([502, 503, 504, 522, 524])
+
 class ApiError extends Error {
   constructor(message, status, body) {
     super(message)
@@ -16,17 +32,67 @@ class ApiError extends Error {
   }
 }
 
-async function request(path, options = {}) {
-  let response
+const wakeListeners = new Set()
+let waking = false
+
+/** Subscribe to "the backend is cold-starting" transitions. Returns an unsubscribe. */
+export function onBackendWaking(listener) {
+  wakeListeners.add(listener)
+  listener(waking)
+  return () => wakeListeners.delete(listener)
+}
+
+function setWaking(next) {
+  if (waking === next) return
+  waking = next
+  wakeListeners.forEach((l) => l(next))
+}
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+async function fetchWithTimeout(url, options) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
   try {
-    response = await fetch(`${BASE}${path}`, options)
-  } catch {
-    throw new ApiError(
-      'Cannot reach the Wreckognise API. Is uvicorn running on port 8000?',
-      0,
-      null,
-    )
+    return await fetch(url, { ...options, signal: controller.signal })
+  } finally {
+    clearTimeout(timer)
   }
+}
+
+const unreachable = () =>
+  new ApiError(
+    BASE
+      ? `Cannot reach the Wreckognise API at ${BASE}. The backend sleeps when idle and ` +
+        'takes about a minute to wake; it did not answer within that window. Try again in a moment.'
+      : 'Cannot reach the Wreckognise API. Is uvicorn running on port 8000?',
+    0,
+    null,
+  )
+
+async function request(path, options = {}) {
+  let response = null
+  // Only a hosted backend can be asleep. Against a local uvicorn a refused
+  // connection is final, and retrying it just delays an honest error by 13 s.
+  const retries = BASE ? NETWORK_RETRIES : 0
+
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      response = await fetchWithTimeout(`${BASE}${path}`, options)
+      if (!COLD_START_STATUSES.has(response.status)) break
+    } catch {
+      response = null // network error, or the 90 s timeout fired
+    }
+
+    if (attempt === retries) {
+      setWaking(false)
+      throw unreachable()
+    }
+    setWaking(true)
+    await sleep(RETRY_BACKOFF_MS[attempt] ?? 7000)
+  }
+
+  setWaking(false)
 
   if (!response.ok) {
     let detail = `Request failed (${response.status})`
