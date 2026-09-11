@@ -75,9 +75,19 @@ function ViewportController({ track, selected, detections }) {
 const BASEMAPS = {
   dark: {
     label: 'Dark',
-    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
-    maxNativeZoom: 20,
+    /*
+     * Esri Dark Gray Canvas, not CARTO.
+     *
+     * CARTO's free dark_all basemap is now gated: the tiles still return HTTP
+     * 200 and still decode as valid PNGs, but the image itself is a grey
+     * placeholder reading "API KEY REQUIRED". That is a nasty failure mode --
+     * every automated check passes and only a human looking at the map sees
+     * it. Esri's canvas needs no key and is the same provider already serving
+     * the other two layers.
+     */
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'Esri — HERE, Garmin, OpenStreetMap contributors',
+    maxNativeZoom: 16,
   },
   ocean: {
     label: 'Bathymetry',
