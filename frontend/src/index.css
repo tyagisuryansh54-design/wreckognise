@@ -88,12 +88,19 @@
      Transform and colour only -- nothing that forces a layout pass, so a grid
      of ten cards stays smooth. */
   .bento:hover {
-    @apply -translate-y-[3px] border-azure/40 bg-navy-soft;
+    @apply -translate-y-[3px] border-azure/75 bg-navy-soft;
+    /* A short throw on the glow rather than a wide one: a large soft halo on a
+       black ground turns to grey haze, while a tight bloom still reads as a
+       lit edge. */
+    box-shadow:
+      0 0 0 1px rgba(0, 255, 45, 0.12),
+      0 8px 26px -14px rgba(0, 255, 45, 0.55);
   }
   .bento::after {
     content: '';
     @apply pointer-events-none absolute inset-x-0 top-0 h-px origin-left scale-x-0
-           bg-azure/70 transition-transform duration-300 ease-out;
+           bg-azure transition-transform duration-300 ease-out;
+    box-shadow: 0 0 10px 0 rgba(0, 255, 45, 0.85);
   }
   .bento:hover::after {
     @apply scale-x-100;
