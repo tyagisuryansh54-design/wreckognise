@@ -1,6 +1,7 @@
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSurvey } from './hooks/useSurvey'
 import Hero from './components/Hero'
+import HeroAsciiCore from './components/ui/HeroAsciiCore'
 import PipelineStatus from './components/PipelineStatus'
 import IngestionBox from './components/IngestionBox'
 import InferenceBox from './components/InferenceBox'
@@ -13,6 +14,22 @@ import { IconAlert, IconX } from './components/Icons'
 export default function App() {
   const survey = useSurvey()
   const uploadRef = useRef(null)
+
+  // The landing screen sits in front of the dashboard until a CTA is pressed.
+  // useSurvey's health check still fires on mount underneath it, so the hosted
+  // backend spends its cold start behind the hero rather than behind a spinner
+  // the visitor is watching.
+  const [entered, setEntered] = useState(false)
+  const [pendingUpload, setPendingUpload] = useState(false)
+
+  useEffect(() => {
+    // The file input lives inside IngestionBox, which is not mounted while the
+    // landing screen is up -- so the click waits for the dashboard to render,
+    // one commit later, rather than finding a null ref.
+    if (!entered || !pendingUpload) return
+    setPendingUpload(false)
+    uploadRef.current?.click()
+  }, [entered, pendingUpload])
 
   const {
     health,
@@ -38,8 +55,23 @@ export default function App() {
     reviewContact,
   } = survey
 
+  if (!entered) {
+    return (
+      <HeroAsciiCore
+        onPrimary={() => {
+          setEntered(true)
+          loadDemo('nlm')
+        }}
+        onSecondary={() => {
+          setEntered(true)
+          setPendingUpload(true)
+        }}
+      />
+    )
+  }
+
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen animate-rise-in">
       <ProgressBar value={progress} />
 
       <main className="mx-auto max-w-[1500px] px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
