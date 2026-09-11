@@ -18,10 +18,19 @@ const ROUTES = [
 ]
 
 const RESOURCES = [
+  { label: 'CLASSIC VIEW', to: '/classic' },
   { label: 'API DOCS', href: 'https://wreckognise-api.onrender.com/docs' },
   { label: 'REPOSITORY', href: 'https://github.com/tyagisuryansh54-design/wreckognise' },
   { label: 'HEALTH JSON', href: 'https://wreckognise-api.onrender.com/api/health' },
 ]
+
+const DROPDOWN_ITEM =
+  'mono block border-b border-[var(--edge)] px-4 py-2.5 text-[10px] tracking-[0.2em] ' +
+  'text-[var(--ink-dim)] transition-colors last:border-0 hover:bg-[var(--cyan-soft)] hover:text-[var(--cyan)]'
+
+const DRAWER_ITEM =
+  'mono border-b border-[var(--edge)] px-5 py-4 text-[11px] tracking-[0.24em] ' +
+  'text-[var(--ink-dim)] transition-colors hover:text-[var(--ink)]'
 
 const linkClass = ({ isActive }) =>
   `mono text-[10px] tracking-[0.24em] transition-colors ${
@@ -87,18 +96,29 @@ export default function Navigation({ telemetry, fps }) {
                   role="menu"
                   className="con-rise absolute right-0 z-20 mt-3 w-52 border border-[var(--edge-hot)] bg-[var(--panel)] shadow-[0_0_40px_-12px_rgba(0,214,255,0.5)]"
                 >
-                  {RESOURCES.map((item) => (
-                    <a
-                      key={item.label}
-                      role="menuitem"
-                      href={item.href}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="mono block border-b border-[var(--edge)] px-4 py-2.5 text-[10px] tracking-[0.2em] text-[var(--ink-dim)] transition-colors last:border-0 hover:bg-[var(--cyan-soft)] hover:text-[var(--cyan)]"
-                    >
-                      {item.label}
-                    </a>
-                  ))}
+                  {RESOURCES.map((item) =>
+                    item.to ? (
+                      <NavLink
+                        key={item.label}
+                        role="menuitem"
+                        to={item.to}
+                        className={DROPDOWN_ITEM}
+                      >
+                        {item.label}
+                      </NavLink>
+                    ) : (
+                      <a
+                        key={item.label}
+                        role="menuitem"
+                        href={item.href}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={DROPDOWN_ITEM}
+                      >
+                        {item.label}
+                      </a>
+                    ),
+                  )}
                 </div>
               </>
             )}
@@ -163,17 +183,23 @@ export default function Navigation({ telemetry, fps }) {
                   {r.label}
                 </NavLink>
               ))}
-              {RESOURCES.map((item) => (
-                <a
-                  key={item.label}
-                  href={item.href}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mono border-b border-[var(--edge)] px-5 py-4 text-[11px] tracking-[0.24em] text-[var(--ink-dim)] transition-colors hover:text-[var(--ink)]"
-                >
-                  {item.label} &nearr;
-                </a>
-              ))}
+              {RESOURCES.map((item) =>
+                item.to ? (
+                  <NavLink key={item.label} to={item.to} className={DRAWER_ITEM}>
+                    {item.label}
+                  </NavLink>
+                ) : (
+                  <a
+                    key={item.label}
+                    href={item.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={DRAWER_ITEM}
+                  >
+                    {item.label} &nearr;
+                  </a>
+                ),
+              )}
             </div>
 
             <div className="mt-auto border-t border-[var(--edge)] px-5 py-4">

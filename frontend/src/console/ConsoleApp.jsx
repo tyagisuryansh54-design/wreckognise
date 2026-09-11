@@ -6,9 +6,11 @@
  * change would reseed the field and the sky would visibly jump.
  */
 
+import { useEffect } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import AtmosphericBackground from './AtmosphericBackground'
 import Navigation from './Navigation'
+import LegacyDashboard from '../App'
 import Home from './pages/Home'
 import Dashboard from './pages/Dashboard'
 import Sandbox from './pages/Sandbox'
@@ -19,6 +21,20 @@ function Shell() {
   const telemetry = useTelemetry()
   const fps = useFps()
   const { pathname } = useLocation()
+
+  // index.css paints <body> cream for the survey dashboard. The console covers
+  // it, but an overscroll bounce or any gap below the fold would show a band of
+  // cream behind an obsidian app.
+  //
+  // A class on <html> rather than an inline style, because this has to be
+  // route-aware: /classic IS the cream dashboard and wants that surface back.
+  // `html.console-dark body` also outranks index.css's `body` on specificity,
+  // so no !important is needed.
+  useEffect(() => {
+    const dark = pathname !== '/classic'
+    document.documentElement.classList.toggle('console-dark', dark)
+    return () => document.documentElement.classList.remove('console-dark')
+  }, [pathname])
 
   return (
     <div className="console-root relative min-h-screen">
@@ -39,6 +55,9 @@ function Shell() {
             <Route path="/" element={<Home />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/sandbox" element={<Sandbox />} />
+            {/* The original bento dashboard, kept reachable rather than
+                orphaned. It paints its own cream surface over the console. */}
+            <Route path="/classic" element={<LegacyDashboard />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>

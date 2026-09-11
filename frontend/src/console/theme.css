@@ -9,6 +9,14 @@
  * different width on every line and the drawing collapses.
  */
 
+/* Paint the document behind the console. `html.console-dark body` (0,1,1)
+   outranks index.css's `body` (0,0,1), so no !important is needed. */
+html.console-dark,
+html.console-dark body {
+  background-color: #030712;
+  background-image: none;
+}
+
 .console-root {
   --obsidian: #030712;
   --panel: #070d18;
