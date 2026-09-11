@@ -205,7 +205,12 @@ export default function App() {
         <footer className="mt-28 border-t border-shell pt-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <p className="font-mono text-sm font-bold text-azure">&lt;wreckognise /&gt;</p>
+              <p className="flex items-baseline gap-2.5">
+                <span className="h-[7px] w-[7px] shrink-0 translate-y-[-1px] bg-azure" />
+                <span className="text-sm font-semibold uppercase tracking-[0.2em] text-ink">
+                  Wreckognise
+                </span>
+              </p>
               <p className="mt-2 max-w-lg text-xs leading-relaxed text-ink-faint">
                 Automated marine survey agent. AI-derived contacts are decision support,
                 not a substitute for qualified hydrographic review.

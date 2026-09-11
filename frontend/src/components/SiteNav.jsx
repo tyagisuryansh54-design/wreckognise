@@ -57,12 +57,21 @@ export default function SiteNav() {
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-shell/70 bg-cream/80 backdrop-blur-md">
       <nav className="mx-auto flex max-w-[1500px] items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+        {/*
+          Wordmark in Inter rather than the template's angle-bracketed mono.
+          `<name />` is a developer-portfolio signature; on a survey instrument
+          it reads as borrowed. Wide-tracked uppercase with a single accent
+          mark is the register this product actually occupies.
+        */}
         <button
           type="button"
           onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          className="font-mono text-sm font-bold tracking-tight text-azure transition-opacity hover:opacity-75"
+          className="group flex items-baseline gap-2.5 transition-opacity hover:opacity-80"
         >
-          &lt;wreckognise /&gt;
+          <span className="h-[7px] w-[7px] shrink-0 translate-y-[-1px] bg-azure transition-transform duration-200 group-hover:rotate-45" />
+          <span className="text-sm font-semibold uppercase tracking-[0.2em] text-ink">
+            Wreckognise
+          </span>
         </button>
 
         <div className="hidden items-center gap-8 md:flex">
