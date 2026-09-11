@@ -19,13 +19,27 @@ export default function App() {
   // useSurvey's health check still fires on mount underneath it, so the hosted
   // backend spends its cold start behind the hero rather than behind a spinner
   // the visitor is watching.
+  //
+  // Entering is a cross-fade, not a swap: the dashboard mounts immediately and
+  // the hero fades out on top of it. Unmounting the hero first would drop the
+  // visitor through a flash of bare page between two very different designs.
   const [entered, setEntered] = useState(false)
+  const [fading, setFading] = useState(false)
+  const [heroGone, setHeroGone] = useState(false)
   const [pendingUpload, setPendingUpload] = useState(false)
 
+  const enter = ({ upload = false } = {}) => {
+    if (entered) return
+    setEntered(true)
+    setFading(true)
+    setPendingUpload(upload)
+    // Matches the 500ms opacity transition below, plus a frame's slack.
+    setTimeout(() => setHeroGone(true), 560)
+  }
+
   useEffect(() => {
-    // The file input lives inside IngestionBox, which is not mounted while the
-    // landing screen is up -- so the click has to wait for the dashboard to
-    // render, one commit later.
+    // The file input lives inside IngestionBox, which mounts with the
+    // dashboard -- so the click waits a commit rather than finding a null ref.
     if (!entered || !pendingUpload) return
     setPendingUpload(false)
     uploadRef.current?.click()
@@ -55,23 +69,24 @@ export default function App() {
     reviewContact,
   } = survey
 
-  if (!entered) {
-    return (
-      <HeroAsciiOne
-        onPrimary={() => {
-          setEntered(true)
-          loadDemo('nlm')
-        }}
-        onSecondary={() => {
-          setEntered(true)
-          setPendingUpload(true)
-        }}
-      />
-    )
-  }
-
   return (
-    <div className="min-h-screen animate-rise-in">
+    <div className="min-h-screen">
+      {!heroGone && (
+        <div
+          className={`fixed inset-0 z-50 overflow-y-auto transition-opacity duration-500 ${
+            fading ? 'pointer-events-none opacity-0' : 'opacity-100'
+          }`}
+        >
+          <HeroAsciiOne
+            onPrimary={() => {
+              enter()
+              loadDemo('nlm')
+            }}
+            onSecondary={() => enter({ upload: true })}
+          />
+        </div>
+      )}
+
       <ProgressBar value={progress} />
 
       <main className="mx-auto max-w-[1500px] px-4 py-6 sm:px-6 lg:px-8 lg:py-10">
