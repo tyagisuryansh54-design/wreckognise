@@ -79,7 +79,7 @@ export default function PipelineStatus({ stage, ingest, inference, report, busy 
           <div className="mt-6 grid grid-cols-2 gap-4 border-t border-ink/8 pt-4 sm:grid-cols-4">
             <Stat
               label="Pings"
-              value={ingest ? ingest.metadata.ping_count.toLocaleString() : '—'}
+              value={ingest ? ingest.metadata.ping_count : '—'}
             />
             <Stat
               label="Coverage"

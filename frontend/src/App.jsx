@@ -1,4 +1,5 @@
 import { useRef } from 'react'
+import { useInView } from './hooks/useMotion'
 import { useSurvey } from './hooks/useSurvey'
 import Hero from './components/Hero'
 import SiteNav from './components/SiteNav'
@@ -17,8 +18,15 @@ import { IconAlert, IconX } from './components/Icons'
  * numbered stages in a pipeline.
  */
 function Section({ id, label, title, children }) {
+  const [ref, inView] = useInView()
   return (
-    <section id={id} className="scroll-mt-24">
+    <section
+      id={id}
+      ref={ref}
+      className={`scroll-mt-24 transition-[opacity,transform] duration-700 ease-out ${
+        inView ? 'translate-y-0 opacity-100' : 'translate-y-3 opacity-0'
+      }`}
+    >
       <p className="comment">{label}</p>
       <h2 className="mt-3 text-2xl font-bold tracking-tight text-ink sm:text-3xl">{title}</h2>
       <div className="mt-6">{children}</div>

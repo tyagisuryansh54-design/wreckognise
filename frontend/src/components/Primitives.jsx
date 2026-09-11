@@ -1,5 +1,7 @@
 /** Shared building blocks for the bento grid. */
 
+import { useCountUp } from '../hooks/useMotion'
+
 export function BentoCard({
   as: Tag = 'section',
   tone = 'light',
@@ -50,6 +52,16 @@ export function CardHeader({ eyebrow, title, meta, dark = false, action }) {
 
 /** A labelled figure. `dark` flips it for navy/teal grounds. */
 export function Stat({ label, value, unit, dark = false, accent, hint }) {
+  // Count up only when the caller passes a real number. Pre-formatted strings
+  // -- coordinates, percentages, an em dash for "no data yet" -- pass through
+  // untouched, because a readout that animates sometimes and not others looks
+  // broken rather than alive.
+  const animated = useCountUp(typeof value === 'number' ? value : null)
+  const shown =
+    typeof value === 'number' && animated != null
+      ? Math.round(animated).toLocaleString()
+      : value
+
   return (
     <div className="min-w-0">
       <p className={`label ${dark ? 'text-ink/40' : 'text-ink/40'}`}>{label}</p>
@@ -57,7 +69,7 @@ export function Stat({ label, value, unit, dark = false, accent, hint }) {
         className={`stat mt-1 truncate ${accent ?? (dark ? 'text-ink' : 'text-ink')}`}
         title={hint ?? `${value}${unit ? ` ${unit}` : ''}`}
       >
-        {value}
+        {shown}
         {unit && (
           <span
             className={`ml-1 font-mono text-xs font-medium ${
