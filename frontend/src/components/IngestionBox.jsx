@@ -32,6 +32,11 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, onSample,
    * changed nothing visible. A control that looks live and does nothing is
    * worse than no control -- it reads as a broken app rather than a setting.
    */
+  // True only while a kernel change is being re-run -- not on a first load,
+  // which already has its own progress bar and empty state.
+  const reprocessing = busy === 'ingest' && Boolean(ingest)
+  const activeOption = DENOISE_OPTIONS.find((o) => o.id === method)
+
   const replay = useRef(null)
   const lastMethod = useRef(method)
 
@@ -177,15 +182,31 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, onSample,
         />
       </div>
 
-      {/* --- denoise kernel selector --- */}
+      {/*
+        --- denoise kernel selector ---
+
+        Changing the kernel re-runs the whole preprocessing chain on the
+        backend, which takes seconds. Without a visible in-flight state the
+        control looks dead: the click registers, nothing moves, and the numbers
+        quietly change later. The status line below is the feedback.
+      */}
       <fieldset className="mt-4">
-        <legend className="label text-ink/40">Denoise Kernel</legend>
-        <div className="segmented mt-2">
+        <div className="flex items-baseline justify-between gap-3">
+          <legend className="label text-ink/40">Denoise Kernel</legend>
+          {reprocessing && (
+            <span className="flex items-center gap-2 font-mono text-2xs text-azure">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-azure" />
+              reprocessing with {activeOption?.label.toLowerCase()}…
+            </span>
+          )}
+        </div>
+        <div className={`segmented mt-2 transition-opacity ${reprocessing ? 'opacity-60' : ''}`}>
           {DENOISE_OPTIONS.map((option) => (
             <button
               key={option.id}
               type="button"
               onClick={() => setMethod(option.id)}
+              disabled={busy === 'ingest'}
               title={option.hint}
               aria-pressed={method === option.id}
               className={
@@ -295,8 +316,15 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, onSample,
               </div>
             </div>
 
-            {/* --- quality metrics --- */}
-            <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {/* Keyed on the method so the row re-mounts and fades in when the
+                figures change -- otherwise the numbers swap in place and the
+                update is easy to miss entirely. */}
+            <div
+              key={`${method}-${stats.elapsed_ms}`}
+              className={`mt-4 grid grid-cols-2 gap-4 animate-fade-up sm:grid-cols-4 ${
+                reprocessing ? 'opacity-40' : ''
+              }`}
+            >
               <Stat
                 label="SNR Gain"
                 value={`${stats.snr_gain_db > 0 ? '+' : ''}${stats.snr_gain_db.toFixed(2)}`}
