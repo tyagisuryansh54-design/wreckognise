@@ -16,7 +16,12 @@ from ..models.schemas import (
     SurveyStatus,
 )
 from ..services.preprocessing import preprocess, render_waterfall
-from ..services.sonar_reader import list_samples, read_image_sample, read_sonar_file
+from ..services.sonar_reader import (
+    list_samples,
+    read_image_file,
+    read_image_sample,
+    read_sonar_file,
+)
 from ..services.store import store
 
 router = APIRouter(prefix="/api/ingest", tags=["ingestion"])
@@ -24,7 +29,7 @@ router = APIRouter(prefix="/api/ingest", tags=["ingestion"])
 
 @router.post("/upload", response_model=IngestResponse)
 async def upload_sonar(
-    file: UploadFile = File(..., description="Raw .xtf / .jsf side-scan sonar file"),
+    file: UploadFile = File(..., description="Raw .xtf / .jsf sonar file, or an exported .jpg / .png waterfall"),
     denoise_method: str = Form(default="nlm"),
     apply_tvg: bool = Form(default=True),
     apply_clahe: bool = Form(default=True),
@@ -76,6 +81,9 @@ async def load_demo(
     return _process(survey_id, virtual_path, Path(line_name).name, denoise_method, True, True)
 
 
+IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
+
+
 def _process(
     survey_id: str,
     path: Path,
@@ -85,10 +93,16 @@ def _process(
     apply_clahe: bool,
 ) -> IngestResponse:
     """Decode, denoise and render one survey line."""
+    # Route by kind, not by hope. An image handed to read_sonar_file would fail
+    # to decode and fall back to a SYNTHESISED swath -- the user would get a
+    # plausible-looking survey that has nothing to do with the file they
+    # uploaded, with no error to tell them so.
+    is_image = path.suffix.lower() in IMAGE_SUFFIXES
     try:
-        survey = read_sonar_file(path, survey_id)
+        survey = read_image_file(path, survey_id) if is_image else read_sonar_file(path, survey_id)
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=422, detail=f"Could not decode sonar file: {exc}") from exc
+        kind = "image" if is_image else "sonar file"
+        raise HTTPException(status_code=422, detail=f"Could not decode {kind}: {exc}") from exc
 
     survey.metadata.filename = display_name
     return _finalise(survey, denoise_method, apply_tvg, apply_clahe)

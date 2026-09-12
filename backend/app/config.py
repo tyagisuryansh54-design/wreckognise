@@ -25,7 +25,10 @@ class Settings(BaseSettings):
 
     # --- ingestion limits ---
     max_upload_mb: int = 512
-    allowed_extensions: tuple[str, ...] = (".xtf", ".jsf", ".sgy", ".segy")
+    allowed_extensions: tuple[str, ...] = (
+        ".xtf", ".jsf", ".sgy", ".segy",          # raw sonar, navigation included
+        ".jpg", ".jpeg", ".png", ".tif", ".tiff",  # exported waterfall images
+    )
 
     # --- preprocessing defaults ---
     denoise_method: str = "nlm"          # "nlm" | "bilateral" | "none"

@@ -532,23 +532,31 @@ def list_samples() -> list[dict]:
 
 
 def read_image_sample(filename: str, survey_id: str) -> SonarSurvey:
-    """Load a real sonar image as a survey the rest of the pipeline can process.
+    """Load one of the BUNDLED sonar images by name."""
+    path = SAMPLES_DIR / Path(filename).name
+    if not path.is_file():
+        raise FileNotFoundError(f"no bundled sample named '{filename}'")
+    return read_image_file(path, survey_id)
+
+
+def read_image_file(path: Path, survey_id: str) -> SonarSurvey:
+    """Load a sonar IMAGE as a survey the rest of the pipeline can process.
 
     A bare sonar image carries no navigation, so a plausible track is attached
     to keep georeferencing, the chart and reporting exercisable. The positions
     that come out are therefore ILLUSTRATIVE, not survey-grade -- the metadata
     says so explicitly, and the dashboard surfaces it, because a coordinate
     derived from invented navigation must never be mistaken for a real fix.
+
+    This is the path an uploaded .jpg/.png takes. A raw .xtf carries its own
+    GPS per ping and goes through read_sonar_file instead; the two must not be
+    confused, which is why the parser string differs.
     """
     import cv2
 
-    path = SAMPLES_DIR / Path(filename).name
-    if not path.is_file():
-        raise FileNotFoundError(f"no bundled sample named '{filename}'")
-
     image = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
     if image is None:
-        raise ValueError(f"could not decode sample '{filename}'")
+        raise ValueError(f"could not decode image '{path.name}'")
 
     pings = image.shape[0]
     origin = None

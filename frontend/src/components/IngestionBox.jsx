@@ -117,10 +117,10 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, onSample,
             </span>
             <div>
               <p className="font-sans text-sm font-semibold text-ink">
-                {busy === 'ingest' ? 'Decoding sonar packets…' : 'Drop a .xtf or .jsf capture'}
+                {busy === 'ingest' ? 'Decoding sonar packets…' : 'Drop a sonar capture or waterfall image'}
               </p>
               <p className="font-serif text-xs text-ink/50">
-                EdgeTech JSF · Triton XTF · SEG-Y · up to 512 MB
+                Raw: XTF · JSF · SEG-Y   |   Image: JPG · PNG · TIFF
               </p>
             </div>
           </div>
@@ -168,7 +168,7 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, onSample,
         <input
           ref={uploadRef}
           type="file"
-          accept=".xtf,.jsf,.sgy,.segy"
+          accept=".xtf,.jsf,.sgy,.segy,.jpg,.jpeg,.png,.tif,.tiff"
           className="hidden"
           onChange={(e) => {
             handleFiles(e.target.files)

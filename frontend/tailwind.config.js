@@ -76,13 +76,13 @@ export default {
         amber: '#FFC533',
       },
       fontFamily: {
-        // JetBrains Mono for anything that reads as machine output; Inter for
+        // JetBrains Mono for anything that reads as machine output; Open Sans for
         // prose. `display` and `serif` are kept as aliases so the components
         // that reference them do not all have to change.
         mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
-        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
-        display: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
-        serif: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        sans: ['"Open Sans"', 'system-ui', '-apple-system', 'sans-serif'],
+        display: ['"Open Sans"', 'system-ui', '-apple-system', 'sans-serif'],
+        serif: ['"Open Sans"', 'system-ui', '-apple-system', 'sans-serif'],
       },
       fontSize: {
         '2xs': ['0.6875rem', { lineHeight: '1rem' }],
