@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { BentoCard, CardHeader, EmptyState, Meter, Row, Spinner, Stat } from './Primitives'
 import { IconLayers, IconUpload, IconWave } from './Icons'
 import { bytes } from '../utils/format'
@@ -24,13 +24,35 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, onSample,
   const [dragging, setDragging] = useState(false)
   const frameRef = useRef(null)
 
+  /*
+   * How the swath on screen was loaded, so changing the kernel can re-run it.
+   *
+   * Without this the selector only set a variable that the NEXT load happened
+   * to read: with a swath already on screen, picking a different filter
+   * changed nothing visible. A control that looks live and does nothing is
+   * worse than no control -- it reads as a broken app rather than a setting.
+   */
+  const replay = useRef(null)
+  const lastMethod = useRef(method)
+
   const handleFiles = useCallback(
     (files) => {
       const file = files?.[0]
-      if (file) onUpload(file, { denoiseMethod: method })
+      if (!file) return
+      replay.current = (m) => onUpload(file, { denoiseMethod: m })
+      onUpload(file, { denoiseMethod: method })
     },
     [onUpload, method],
   )
+
+  // Re-run the current swath when the kernel changes. Skipped on first render
+  // and while a stage is already running.
+  useEffect(() => {
+    if (lastMethod.current === method) return
+    lastMethod.current = method
+    if (!ingest || busy || !replay.current) return
+    replay.current(method)
+  }, [method, ingest, busy])
 
   const onDrop = useCallback(
     (event) => {
@@ -114,7 +136,10 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, onSample,
             </button>
             <button
               type="button"
-              onClick={() => onDemo(method)}
+              onClick={() => {
+                replay.current = (m) => onDemo(m)
+                onDemo(method)
+              }}
               disabled={busy === 'ingest'}
               className="btn-ghost !px-4 !py-2"
               title="A modelled swath — synthetic, for exercising the full pipeline"
@@ -125,7 +150,9 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, onSample,
               <button
                 type="button"
                 onClick={() => {
-                  onSample(samples[sampleIndex % samples.length].file, method)
+                  const pick = samples[sampleIndex % samples.length].file
+                  replay.current = (m) => onSample(pick, m)
+                  onSample(pick, method)
                   setSampleIndex((i) => i + 1)
                 }}
                 disabled={busy === 'ingest'}
