@@ -61,13 +61,32 @@ export default function InferenceBox({
       const frame = frameRef.current
       if (!frame) return
       const rect = frame.getBoundingClientRect()
-      const px = ((event.clientX - rect.left) / rect.width) * swathWidth
-      const py = ((event.clientY - rect.top) / rect.height) * swathHeight
+
+      /*
+       * The swath is letterboxed inside a square frame, so the image does not
+       * fill it. Mapping the pointer against the FRAME would report a
+       * coordinate the cursor is not actually over -- increasingly wrong
+       * toward the edges, and silently so, which on a pixel-to-WGS-84 solver
+       * is the worst kind of wrong. Map against the rendered image instead.
+       */
+      const scale = Math.min(rect.width / swathWidth, rect.height / swathHeight)
+      const drawnW = swathWidth * scale
+      const drawnH = swathHeight * scale
+      const offsetX = (rect.width - drawnW) / 2
+      const offsetY = (rect.height - drawnH) / 2
+
+      const localX = event.clientX - rect.left - offsetX
+      const localY = event.clientY - rect.top - offsetY
+      if (localX < 0 || localY < 0 || localX > drawnW || localY > drawnH) {
+        setCursor(null)          // pointer is on the letterbox, not the swath
+        return
+      }
+
       setCursor({
-        left: ((event.clientX - rect.left) / rect.width) * 100,
-        top: ((event.clientY - rect.top) / rect.height) * 100,
+        left: ((localX + offsetX) / rect.width) * 100,
+        top: ((localY + offsetY) / rect.height) * 100,
       })
-      probeAt(px, py)
+      probeAt((localX / drawnW) * swathWidth, (localY / drawnH) * swathHeight)
     },
     [probeAt, swathWidth, swathHeight],
   )
@@ -137,19 +156,22 @@ export default function InferenceBox({
             ref={frameRef}
             onMouseMove={onMove}
             onMouseLeave={() => setCursor(null)}
-            className="relative overflow-hidden rounded-2xl ring-1 ring-ink/15"
+            className="relative mx-auto aspect-square w-full max-w-[512px] overflow-hidden rounded ring-1 ring-ink/15"
           >
             <img
               src={assetUrl(inference.annotated_png)}
               alt="Sonar waterfall with YOLOv8 detection boxes"
-              className="block h-64 w-full object-cover md:h-72"
+              className="block h-full w-full object-contain"
               draggable="false"
             />
 
-            {/* Vector overlay in swath pixel space -- crisp at any card width. */}
+            {/* Vector overlay in swath pixel space -- crisp at any card width.
+                `meet` matches object-contain on the image: with `none` the boxes
+                stretch to fill the square frame while the swath letterboxes
+                inside it, and every box lands off its contact. */}
             <svg
               viewBox={`0 0 ${swathWidth} ${swathHeight}`}
-              preserveAspectRatio="none"
+              preserveAspectRatio="xMidYMid meet"
               className="absolute inset-0 h-full w-full"
             >
               {detections.map((d) => {
