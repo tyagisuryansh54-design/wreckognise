@@ -275,8 +275,13 @@ TARGET_LIBRARY: list[tuple[str, int, int, int, float]] = [
 # nothing about whether the pipeline works. The demo plants substantial targets
 # only -- the ones a survey would actually be commissioned to find -- and fewer
 # of them, so each is legible on the chart.
+#
+# Containers were dropped as well, on measurement rather than taste: at
+# 30x16 px they were the only planted target the detector routinely missed,
+# leaving obvious blobs on screen with no box on them. A demo that shows the
+# model overlooking something visible is worse than one with fewer contacts.
 DEMO_TARGETS: list[tuple[str, int, int, int, float]] = [
-    entry for entry in TARGET_LIBRARY if entry[0] in {"shipwreck", "debris_field", "container"}
+    entry for entry in TARGET_LIBRARY if entry[0] in {"shipwreck", "debris_field"}
 ]
 
 

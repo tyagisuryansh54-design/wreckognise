@@ -83,8 +83,6 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, onSample,
   }, [])
 
   const stats = ingest?.preprocess
-  const isImage = ingest?.metadata?.file_format === 'image'
-  const fit = isImage ? 'object-contain' : 'object-cover'
   const meta = ingest?.metadata
 
   return (
@@ -233,24 +231,21 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, onSample,
               </div>
             )}
             {/*
-              Image sources get a fixed 512 square. `object-contain`, not
-              `cover`: a tall sonar image cropped to a square would hide most
-              of the swath, and the point of this panel is to see the whole
-              thing before and after filtering.
+              A fixed 512 square for every source, with `object-contain` rather
+              than `cover`. Cropping to fill would hide part of the swath, and
+              seeing the whole thing before and after filtering is the point of
+              this panel -- a contact cropped out of frame is a contact the
+              viewer cannot check.
             */}
             <div
               ref={frameRef}
-              className={`relative select-none overflow-hidden rounded bg-navy ring-1 ring-ink/15 ${
-                isImage
-                  ? 'mx-auto aspect-square w-full max-w-[512px]'
-                  : 'h-64 md:h-72'
-              }`}
+              className="relative mx-auto aspect-square w-full max-w-[512px] select-none overflow-hidden rounded bg-navy ring-1 ring-ink/15"
             >
               {/* Filtered (right of the handle) sits underneath. */}
               <img
                 src={assetUrl(ingest.filtered_waterfall_png)}
                 alt="OpenCV-denoised sonar waterfall"
-                className={`absolute inset-0 h-full w-full ${fit}`}
+                className="absolute inset-0 h-full w-full object-contain"
                 draggable="false"
               />
               {/* Raw (left of the handle) is clipped over the top. */}
@@ -261,7 +256,7 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, onSample,
                 <img
                   src={assetUrl(ingest.raw_waterfall_png)}
                   alt="Raw sonar waterfall before filtering"
-                  className={`h-full w-full ${fit}`}
+                  className="h-full w-full object-contain"
                   draggable="false"
                 />
               </div>
