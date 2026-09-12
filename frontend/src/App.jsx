@@ -3,6 +3,7 @@ import { useInView } from './hooks/useMotion'
 import { useSurvey } from './hooks/useSurvey'
 import Hero from './components/Hero'
 import SiteNav from './components/SiteNav'
+import SonarBackdrop from './components/SonarBackdrop'
 import PipelineStatus from './components/PipelineStatus'
 import IngestionBox from './components/IngestionBox'
 import InferenceBox from './components/InferenceBox'
@@ -65,6 +66,7 @@ export default function App() {
   return (
     <div className="min-h-screen">
       <ProgressBar value={progress} />
+      <SonarBackdrop />
       <SiteNav />
 
       <main className="mx-auto max-w-6xl px-5 pb-24 pt-16 sm:px-8">

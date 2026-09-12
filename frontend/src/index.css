@@ -176,6 +176,15 @@
     @apply animate-shimmer rounded;
   }
 
+  /* --- Sonar backdrop ----------------------------------------------
+     A ring expands and fades over one period. Opacity is front-loaded: a ring
+     that stays visible to full diameter draws a hard circle across the page,
+     whereas fading by two thirds of the way out reads as a pulse dissipating. */
+  .sonar-ring {
+    animation: sonar-ping 10.4s cubic-bezier(0.16, 0.7, 0.3, 1) infinite;
+    opacity: 0;
+  }
+
   /* --- Entrance ----------------------------------------------------
      Staggered fade-up, as the reference does on every page. Depth is capped
      at eight: past that the last card arrives late enough to feel broken
@@ -192,6 +201,14 @@
   .stagger > *:nth-child(n + 7) { animation-delay: 360ms; }
 }
 
+
+@keyframes sonar-ping {
+  0%   { transform: translate(-50%, -50%) scale(0.12); opacity: 0; }
+  8%   { opacity: 0.7; }
+  70%  { opacity: 0.08; }
+  100% { transform: translate(-50%, -50%) scale(2.6); opacity: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .bento:hover {
     transform: none !important;
@@ -199,6 +216,10 @@
   .bento::after,
   .bento:hover::after {
     transition: none !important;
+  }
+  .sonar-ring {
+    animation: none !important;
+    opacity: 0.05 !important;
   }
   .stagger > *,
   .animate-fade-up,
