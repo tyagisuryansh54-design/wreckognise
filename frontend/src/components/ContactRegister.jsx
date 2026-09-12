@@ -23,7 +23,7 @@ const FILTERS = [
  * This is the operator's working list: sorted by severity then confidence, so
  * the thing most likely to sink a ship is always the first row on screen.
  */
-export default function ContactRegister({ detections, selected, onSelect, summary }) {
+export default function ContactRegister({ detections, selected, onSelect, summary, simulatedNav = false }) {
   const [filter, setFilter] = useState('all')
 
   const rows = useMemo(() => {
@@ -180,15 +180,23 @@ export default function ContactRegister({ detections, selected, onSelect, summar
                     active ? 'text-ink/55' : 'text-ink/50'
                   }`}
                 >
-                  <span className="tabular-nums">
-                    {d.geo.latitude.toFixed(5)}, {d.geo.longitude.toFixed(5)}
-                  </span>
-                  <span className={active ? 'text-ink/25' : 'text-ink/25'}>·</span>
+                  {simulatedNav ? (
+                    <span className="text-ink/35">no navigation in source</span>
+                  ) : (
+                    <span className="tabular-nums">
+                      {d.geo.latitude.toFixed(5)}, {d.geo.longitude.toFixed(5)}
+                    </span>
+                  )}
+                  <span className="text-ink/25">·</span>
                   <span>
                     {d.length_m}×{d.width_m} m
                   </span>
-                  <span className={active ? 'text-ink/25' : 'text-ink/25'}>·</span>
-                  <span>±{d.geo.horizontal_uncertainty_m.toFixed(2)} m</span>
+                  {!simulatedNav && (
+                    <>
+                      <span className="text-ink/25">·</span>
+                      <span>±{d.geo.horizontal_uncertainty_m.toFixed(2)} m</span>
+                    </>
+                  )}
                 </div>
               </button>
             )

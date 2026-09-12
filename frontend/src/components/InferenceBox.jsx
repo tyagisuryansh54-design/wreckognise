@@ -13,6 +13,7 @@ import { classLabel, compass, severityStyle, toDMS } from '../utils/format'
  * is what makes the pixel -> Lat/Long chain legible instead of magical.
  */
 export default function InferenceBox({
+  simulatedNav = false,
   ingest,
   inference,
   detections,
@@ -248,22 +249,50 @@ export default function InferenceBox({
           </p>
         ) : (
           <>
-            <div className="mt-3 grid grid-cols-2 gap-4">
-              <div>
-                <p className="label text-ink/40">Latitude</p>
-                <p className="mt-1 font-mono text-lg font-semibold tabular-nums text-aqua">
-                  {readout.latitude.toFixed(6)}°
-                </p>
-                <p className="font-mono text-2xs text-ink/40">{toDMS(readout.latitude, 'lat')}</p>
+            {/*
+              Across-track range and bearing are derived from the SWATH itself
+              -- sonar altitude, slant range, nadir position -- so they hold for
+              an image. Latitude and longitude additionally need the vessel's
+              GPS, which an image does not carry, so they are withheld rather
+              than shown as a number that looks like a fix.
+            */}
+            {simulatedNav ? (
+              <div className="mt-3 grid grid-cols-2 gap-4">
+                <div>
+                  <p className="label text-ink/40">Across track</p>
+                  <p className="mt-1 font-mono text-lg font-semibold tabular-nums text-aqua">
+                    {readout.across_track_m.toFixed(1)} m
+                  </p>
+                  <p className="font-mono text-2xs text-ink/40">
+                    {readout.across_track_m < 0 ? 'port' : 'starboard'}
+                  </p>
+                </div>
+                <div>
+                  <p className="label text-ink/40">Position</p>
+                  <p className="mt-1 font-mono text-lg font-semibold text-ink/45">
+                    not derivable
+                  </p>
+                  <p className="font-mono text-2xs text-ink/40">no navigation in source</p>
+                </div>
               </div>
-              <div>
-                <p className="label text-ink/40">Longitude</p>
-                <p className="mt-1 font-mono text-lg font-semibold tabular-nums text-aqua">
-                  {readout.longitude.toFixed(6)}°
-                </p>
-                <p className="font-mono text-2xs text-ink/40">{toDMS(readout.longitude, 'lon')}</p>
+            ) : (
+              <div className="mt-3 grid grid-cols-2 gap-4">
+                <div>
+                  <p className="label text-ink/40">Latitude</p>
+                  <p className="mt-1 font-mono text-lg font-semibold tabular-nums text-aqua">
+                    {readout.latitude.toFixed(6)}°
+                  </p>
+                  <p className="font-mono text-2xs text-ink/40">{toDMS(readout.latitude, 'lat')}</p>
+                </div>
+                <div>
+                  <p className="label text-ink/40">Longitude</p>
+                  <p className="mt-1 font-mono text-lg font-semibold tabular-nums text-aqua">
+                    {readout.longitude.toFixed(6)}°
+                  </p>
+                  <p className="font-mono text-2xs text-ink/40">{toDMS(readout.longitude, 'lon')}</p>
+                </div>
               </div>
-            </div>
+            )}
 
             <dl className="mt-3">
               <Row dark label="Ping index" value={readout.ping_index.toLocaleString()} />

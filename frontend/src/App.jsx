@@ -63,6 +63,15 @@ export default function App() {
     reviewContact,
   } = survey
 
+  /*
+   * An uploaded or bundled IMAGE carries no navigation -- a picture has no GPS
+   * per ping. The pipeline attaches a plausible track so the geodesy and chart
+   * stay exercisable, but the coordinates that fall out are invented, and a
+   * coordinate on screen is read as a fix. So they are withheld for image
+   * sources rather than shown with a caveat nobody reads.
+   */
+  const simulatedNav = ingest?.metadata?.file_format === 'image'
+
   return (
     <div className="min-h-screen">
       <ProgressBar value={progress} />
@@ -163,6 +172,7 @@ export default function App() {
 
           <Section id="detect" label="03 / detect" title="YOLOv8 across the swath.">
             <InferenceBox
+              simulatedNav={simulatedNav}
               ingest={ingest}
               inference={inference}
               detections={detections}
@@ -175,6 +185,7 @@ export default function App() {
 
           <Section id="chart" label="04 / georeference" title="Every box, a coordinate.">
             <MapBox
+              simulatedNav={simulatedNav}
               telemetry={telemetry}
               detections={detections}
               selected={selected}
@@ -184,6 +195,7 @@ export default function App() {
 
           <Section id="register" label="05 / triage" title="Contacts, dispositioned.">
             <ContactRegister
+              simulatedNav={simulatedNav}
               detections={detections}
               selected={selected}
               onSelect={setSelectedId}
@@ -193,6 +205,7 @@ export default function App() {
 
           <Section id="report" label="06 / report" title="Brief and GIS export.">
             <ActionBox
+              simulatedNav={simulatedNav}
               ingest={ingest}
               inference={inference}
               selected={selected}

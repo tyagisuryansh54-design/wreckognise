@@ -113,7 +113,7 @@ const MAX_ZOOM = 20
  * error budget, so the map shows where a wreck *is* and how confidently,
  * rather than implying a pin is a point measurement.
  */
-export default function MapBox({ telemetry, detections, selected, onSelect }) {
+export default function MapBox({ telemetry, detections, selected, onSelect, simulatedNav = false }) {
   const [basemap, setBasemap] = useState('dark')
   const [showUncertainty, setShowUncertainty] = useState(true)
 
@@ -128,6 +128,36 @@ export default function MapBox({ telemetry, detections, selected, onSelect }) {
   }, [trackLine])
 
   const tiles = BASEMAPS[basemap]
+
+  /*
+   * Plotting an image-sourced survey would draw a track and contacts at
+   * coordinates the pipeline invented. On a chart that is indistinguishable
+   * from a real fix, so the chart is withheld entirely and says why.
+   */
+  if (simulatedNav) {
+    return (
+      <BentoCard tone="light" className="flex flex-col p-6">
+        <CardHeader
+          eyebrow="03 · Interactive GIS Chart"
+          title="Chart unavailable for this source"
+          meta="no navigation"
+        />
+        <div className="mt-4 flex flex-1 items-center justify-center rounded border border-ink/10 bg-cream/50 p-10 text-center">
+          <div>
+            <p className="font-mono text-xs text-ink/60">POSITION NOT DERIVABLE</p>
+            <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-ink-dim">
+              This survey came from an image, which carries no per-ping GPS. Object
+              size, aspect and acoustic shadow are still measured from the swath, but
+              absolute position needs navigation the source does not contain.
+            </p>
+            <p className="mt-3 font-mono text-2xs text-ink-faint">
+              load a .xtf or .jsf capture to chart contacts
+            </p>
+          </div>
+        </div>
+      </BentoCard>
+    )
+  }
 
   return (
     <BentoCard tone="light" className="flex flex-col overflow-hidden p-0">

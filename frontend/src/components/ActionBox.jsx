@@ -46,6 +46,7 @@ const FORMATS = [
  * been dealt with.
  */
 export default function ActionBox({
+  simulatedNav = false,
   ingest,
   inference,
   selected,
@@ -117,14 +118,27 @@ export default function ActionBox({
             </div>
 
             <div className="mt-3 rounded-lg bg-cream/50 px-3 py-2 font-mono text-2xs leading-relaxed text-ink/60">
-              {toDMS(selected.geo.latitude, 'lat')}
-              <br />
-              {toDMS(selected.geo.longitude, 'lon')}
-              <br />
-              <span className="text-ink/35">
-                ± {selected.geo.horizontal_uncertainty_m.toFixed(2)} m ·{' '}
-                {(selected.confidence * 100).toFixed(1)}% confidence
-              </span>
+              {simulatedNav ? (
+                <>
+                  <span className="text-ink/45">position not derivable</span>
+                  <br />
+                  <span className="text-ink/35">
+                    image source carries no navigation ·{' '}
+                    {(selected.confidence * 100).toFixed(1)}% confidence
+                  </span>
+                </>
+              ) : (
+                <>
+                  {toDMS(selected.geo.latitude, 'lat')}
+                  <br />
+                  {toDMS(selected.geo.longitude, 'lon')}
+                  <br />
+                  <span className="text-ink/35">
+                    ± {selected.geo.horizontal_uncertainty_m.toFixed(2)} m ·{' '}
+                    {(selected.confidence * 100).toFixed(1)}% confidence
+                  </span>
+                </>
+              )}
             </div>
 
             {selected.notes && (
@@ -206,11 +220,25 @@ export default function ActionBox({
             {busy === 'report' ? 'Compiling…' : 'Generate Report'}
           </button>
 
+          {/*
+            Withheld for image sources along with the on-screen coordinates.
+            This one matters most: a GeoJSON file outlives the screen that
+            explained where the numbers came from. Opened in QGIS next week it
+            is indistinguishable from surveyed positions, and nothing in the
+            file says the navigation was invented.
+          */}
           <a
-            href={ingest ? api.geojsonUrl(ingest.survey_id) : undefined}
-            className={`btn-ghost-light ${!inference ? 'pointer-events-none opacity-45' : ''}`}
+            href={ingest && !simulatedNav ? api.geojsonUrl(ingest.survey_id) : undefined}
+            className={`btn-ghost-light ${
+              !inference || simulatedNav ? 'pointer-events-none opacity-45' : ''
+            }`}
             download
-            title="Download contacts as GeoJSON for QGIS or ArcGIS"
+            aria-disabled={!inference || simulatedNav}
+            title={
+              simulatedNav
+                ? 'Unavailable: this survey has no navigation, so there are no positions to export'
+                : 'Download contacts as GeoJSON for QGIS or ArcGIS'
+            }
           >
             <IconDownload className="h-4 w-4" />
             GIS Export
