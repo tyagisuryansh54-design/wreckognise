@@ -209,10 +209,16 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, onSample,
               disabled={busy === 'ingest'}
               title={option.hint}
               aria-pressed={method === option.id}
+              /*
+                No filled block for the selected cell. The accent rule along
+                the bottom edge already marks it, and a green slab on top of
+                that says the same thing twice while making the control the
+                loudest object in the panel.
+              */
               className={
                 method === option.id
-                  ? 'bg-azure/12 text-azure'
-                  : 'text-ink-dim hover:bg-ink/[0.04] hover:text-ink'
+                  ? 'text-ink'
+                  : 'text-ink-dim hover:bg-ink/[0.03] hover:text-ink'
               }
             >
               <span className="block font-mono text-2xs font-semibold uppercase tracking-label">
