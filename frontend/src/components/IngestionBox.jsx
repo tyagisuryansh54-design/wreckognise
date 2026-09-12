@@ -153,7 +153,7 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, onSample,
       {/* --- denoise kernel selector --- */}
       <fieldset className="mt-4">
         <legend className="label text-ink/40">Denoise Kernel</legend>
-        <div className="mt-2 grid grid-cols-3 gap-2">
+        <div className="segmented mt-2">
           {DENOISE_OPTIONS.map((option) => (
             <button
               key={option.id}
@@ -161,16 +161,16 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, onSample,
               onClick={() => setMethod(option.id)}
               title={option.hint}
               aria-pressed={method === option.id}
-              className={`rounded-xl border px-3 py-2 text-left transition-all ${
+              className={
                 method === option.id
-                  ? 'border-azure bg-azure/10 text-azure'
-                  : 'border-ink/12 bg-sand text-ink/60 hover:border-ink/25'
-              }`}
+                  ? 'bg-azure/12 text-azure'
+                  : 'text-ink-dim hover:bg-ink/[0.04] hover:text-ink'
+              }
             >
-              <span className="block font-mono text-2xs font-semibold uppercase tracking-wide">
+              <span className="block font-mono text-2xs font-semibold uppercase tracking-label">
                 {option.label}
               </span>
-              <span className="mt-0.5 block truncate font-serif text-2xs text-ink/40">
+              <span className="mt-0.5 block truncate text-2xs text-ink-faint">
                 {option.hint}
               </span>
             </button>

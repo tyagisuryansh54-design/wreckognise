@@ -126,29 +126,43 @@
   }
 
   /* --- Buttons -----------------------------------------------------
-     Square-ish, not pills: the reference button is a 4px-radius block with
-     mono type and the ground colour as its foreground. */
+     Square-ish, not pills: the reference button is a small-radius block with
+     mono type and the ground colour as its foreground.
+
+     The outline tone matters more here than it looks. `shell` (#1F1F1F) sits
+     16 levels above a `sand` panel (#0F0F0F), which on a screen is no edge at
+     all -- ghost buttons read as floating text with a dead zone around them.
+     They are drawn against the type scale instead, so the border is always
+     visible against whatever surface the button lands on. */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded px-5 py-2.5
-           font-mono text-xs font-semibold tracking-label
+    @apply inline-flex items-center justify-center gap-2 rounded px-4 py-2
+           font-mono text-2xs font-semibold uppercase tracking-label
            transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40;
   }
   .btn-primary {
-    @apply btn bg-azure text-cream hover:bg-aqua hover:text-ink;
+    @apply btn bg-azure text-cream hover:bg-aqua hover:text-cream;
   }
   .btn-dark {
-    @apply btn border border-shell bg-navy text-ink hover:border-ink/25;
+    @apply btn border border-ink/18 bg-navy-soft text-ink hover:border-ink/35;
   }
-  .btn-ghost {
-    @apply btn border border-shell bg-transparent text-ink-dim
-           hover:border-azure hover:text-azure;
-  }
+  .btn-ghost,
   .btn-ghost-light {
-    @apply btn border border-shell bg-transparent text-ink-dim
-           hover:border-azure hover:text-azure;
+    @apply btn border border-ink/18 bg-transparent text-ink-dim
+           hover:border-azure/70 hover:bg-azure/[0.07] hover:text-azure;
   }
   .btn-alert {
-    @apply btn bg-coral text-cream hover:bg-sunset;
+    @apply btn border border-coral/45 bg-transparent text-coral
+           hover:bg-coral hover:text-cream;
+  }
+
+  /* Segmented control: one bordered row divided into cells, rather than a
+     grid of separate boxes. Mutually exclusive options should look like one
+     control with a current setting. */
+  .segmented {
+    @apply flex overflow-hidden rounded border border-ink/18;
+  }
+  .segmented > * {
+    @apply flex-1 border-l border-ink/12 px-3 py-2 text-left transition-colors first:border-l-0;
   }
 
   /* --- Badges ------------------------------------------------------ */
