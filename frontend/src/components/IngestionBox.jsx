@@ -83,6 +83,8 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, onSample,
   }, [])
 
   const stats = ingest?.preprocess
+  const isImage = ingest?.metadata?.file_format === 'image'
+  const fit = isImage ? 'object-contain' : 'object-cover'
   const meta = ingest?.metadata
 
   return (
@@ -221,23 +223,34 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, onSample,
               /* A bare sonar image carries no navigation. Coordinates derived
                  from a simulated track must never read as survey-grade. */
               <div className="mb-3 rounded-xl border border-aqua/40 bg-aqua/10 px-4 py-2.5">
-                <p className="label text-azure">Real Sonar · Held-Out Sample</p>
+                <p className="label text-azure">Image Source · No Navigation</p>
                 <p className="mt-1 font-serif text-xs leading-relaxed text-ink/70">
-                  Genuine survey imagery the detector never saw during training.
-                  The image carries no navigation, so the track and coordinates
-                  are simulated for illustration — the detections are real.
+                  Sonar imagery carries no per-ping GPS, so absolute position cannot
+                  be derived — the chart and coordinates are withheld. Object size,
+                  aspect and acoustic shadow are measured from the swath, and the
+                  detections are real.
                 </p>
               </div>
             )}
+            {/*
+              Image sources get a fixed 512 square. `object-contain`, not
+              `cover`: a tall sonar image cropped to a square would hide most
+              of the swath, and the point of this panel is to see the whole
+              thing before and after filtering.
+            */}
             <div
               ref={frameRef}
-              className="relative h-64 select-none overflow-hidden rounded-2xl bg-navy ring-1 ring-ink/15 md:h-72"
+              className={`relative select-none overflow-hidden rounded bg-navy ring-1 ring-ink/15 ${
+                isImage
+                  ? 'mx-auto aspect-square w-full max-w-[512px]'
+                  : 'h-64 md:h-72'
+              }`}
             >
               {/* Filtered (right of the handle) sits underneath. */}
               <img
                 src={assetUrl(ingest.filtered_waterfall_png)}
                 alt="OpenCV-denoised sonar waterfall"
-                className="absolute inset-0 h-full w-full object-cover"
+                className={`absolute inset-0 h-full w-full ${fit}`}
                 draggable="false"
               />
               {/* Raw (left of the handle) is clipped over the top. */}
@@ -248,7 +261,7 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, onSample,
                 <img
                   src={assetUrl(ingest.raw_waterfall_png)}
                   alt="Raw sonar waterfall before filtering"
-                  className="h-full w-full object-cover"
+                  className={`h-full w-full ${fit}`}
                   draggable="false"
                 />
               </div>
