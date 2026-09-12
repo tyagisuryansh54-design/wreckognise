@@ -162,7 +162,29 @@
     @apply flex overflow-hidden rounded border border-ink/18;
   }
   .segmented > * {
-    @apply flex-1 border-l border-ink/12 px-3 py-2 text-left transition-colors first:border-l-0;
+    @apply relative flex-1 border-l border-ink/12 px-3 py-2 text-left
+           transition-colors duration-150 first:border-l-0;
+  }
+
+  /* A rule that wipes in along the bottom edge, echoing the card hover. On a
+     segmented control the underline also reads as "this is the current one",
+     so the pressed cell keeps it without needing the pointer. */
+  .segmented > *::after {
+    content: '';
+    @apply pointer-events-none absolute inset-x-0 bottom-0 h-px origin-left
+           scale-x-0 bg-azure transition-transform duration-300 ease-out;
+  }
+  .segmented > *:hover::after,
+  .segmented > [aria-pressed='true']::after {
+    @apply scale-x-100;
+  }
+  /* Disabled while a re-run is in flight: no hover affordance for a control
+     that will not respond. */
+  .segmented > *:disabled {
+    @apply cursor-not-allowed;
+  }
+  .segmented > *:disabled:hover::after {
+    @apply scale-x-0;
   }
 
   /* --- Badges ------------------------------------------------------ */
@@ -226,6 +248,10 @@
 @media (prefers-reduced-motion: reduce) {
   .bento:hover {
     transform: none !important;
+  }
+  .segmented > *::after,
+  .segmented > *:hover::after {
+    transition: none !important;
   }
   .bento::after,
   .bento:hover::after {
