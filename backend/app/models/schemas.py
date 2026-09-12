@@ -191,6 +191,12 @@ class Detection(BaseModel):
     acoustic_signature: str = ""
     operational_note: str = ""
     size_plausibility: float = 0.0
+    aspect_plausibility: float = 1.0
+    # Advisory only. The label stands; this says the measured geometry argues
+    # for something else, so an operator can see the disagreement rather than
+    # having it silently resolved for them.
+    geometry_agrees: bool = True
+    geometry_suggests: str | None = None
 
     review_status: ReviewStatus = ReviewStatus.PENDING
     notes: str | None = None

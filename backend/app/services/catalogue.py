@@ -298,6 +298,55 @@ def catalogue_listing() -> list[dict]:
     return [as_dict(key) for key in CATALOGUE if key is not AnomalyClass.UNKNOWN]
 
 
+def aspect_plausibility(label, aspect: float) -> float:
+    """How well a measured length-to-width ratio fits the class, 0 to 1.
+
+    Size and aspect are independent evidence. A 28 m contact is a plausible
+    aircraft on size alone, but at aspect 4.2 it is hull-shaped -- long and
+    narrow -- and aircraft sit between 0.8 and 3.5. Checking only size lets
+    that through, which is exactly the case this exists to catch.
+    """
+    entry = entry_for(label)
+    lo, hi = entry.aspect_range
+    if lo <= aspect <= hi:
+        return 1.0
+    # Inverse-square falloff outside the band, matching size_plausibility.
+    edge = lo if aspect < lo else hi
+    ratio = max(aspect, 1e-6) / max(edge, 1e-6)
+    if ratio < 1:
+        ratio = 1 / ratio
+    return float(1.0 / (ratio * ratio))
+
+
+def better_shape_match(label, length_m: float, width_m: float):
+    """The class whose SHAPE fits these measurements better than `label` does.
+
+    Deliberately not best_match(). That function is size-weighted and carries a
+    specificity bonus, so for a 27.6 x 6.6 m contact already labelled aircraft
+    it returns aircraft again -- it can never disagree with itself, which makes
+    it useless for detecting disagreement.
+
+    This asks a narrower question: holding size plausible, is there a class the
+    measured length-to-width ratio suits better? Returns None when nothing
+    does.
+    """
+    aspect = length_m / max(width_m, 1e-6)
+    current = aspect_plausibility(label, aspect)
+
+    best, best_fit = None, current
+    for candidate in CATALOGUE:
+        if candidate is label or candidate is AnomalyClass.UNKNOWN:
+            continue
+        # The alternative has to be credible on size too, or a 30 m contact
+        # gets "suggested" as a 2 m diver.
+        if size_plausibility(candidate, length_m) < 0.5:
+            continue
+        fit = aspect_plausibility(candidate, aspect)
+        if fit > best_fit + 1e-9:
+            best, best_fit = candidate, fit
+    return best
+
+
 def best_match(length_m: float, width_m: float, shadow_length_m: float) -> AnomalyClass:
     """Pick the class whose survey profile best fits a measured contact.
 

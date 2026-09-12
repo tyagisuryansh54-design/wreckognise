@@ -180,6 +180,14 @@ export default function ContactRegister({ detections, selected, onSelect, summar
                     active ? 'text-ink/55' : 'text-ink/50'
                   }`}
                 >
+                  {d.geometry_agrees === false && (
+                    <>
+                      <span className="font-mono text-2xs text-amber" title={`Measured shape fits ${d.geometry_suggests} better`}>
+                        ⚠ class uncertain
+                      </span>
+                      <span className="text-ink/25">·</span>
+                    </>
+                  )}
                   {simulatedNav ? (
                     <span className="text-ink/35">no navigation in source</span>
                   ) : (

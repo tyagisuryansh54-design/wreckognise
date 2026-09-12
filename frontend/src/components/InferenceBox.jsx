@@ -457,6 +457,32 @@ export default function InferenceBox({
                 <Row dark label="Aspect ratio" value={selected.aspect_ratio.toFixed(2)} />
                 <Row dark label="Backscatter" value={`${selected.backscatter_db} dB`} />
               </dl>
+
+              {/*
+                Advisory, not a correction. The network judged texture and
+                shadow; the swath measured shape. When they disagree the label
+                stands and the operator is told, because silently resolving it
+                either way throws away one of two independent pieces of
+                evidence.
+              */}
+              {selected.geometry_agrees === false && (
+                <div className="mt-3 flex items-start gap-2.5 rounded border border-amber/40 bg-amber/10 px-3 py-2.5">
+                  <span className="mt-[3px] h-1.5 w-1.5 shrink-0 rounded-full bg-amber" />
+                  <div className="min-w-0">
+                    <p className="font-mono text-2xs font-semibold uppercase tracking-label text-amber">
+                      Class uncertain · geometry disagrees
+                    </p>
+                    <p className="mt-1 font-mono text-2xs leading-relaxed text-ink/55">
+                      Aspect {selected.aspect_ratio.toFixed(2)} is outside the range for{' '}
+                      {classLabel(selected.label).toLowerCase()}. Measured shape fits{' '}
+                      <span className="text-ink/80">
+                        {classLabel(selected.geometry_suggests).toLowerCase()}
+                      </span>{' '}
+                      better — worth operator review.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

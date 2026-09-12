@@ -80,6 +80,20 @@ MIN_CONTACT_AREA_PX = 40   # smallest resolvable contact
 # geometry wins. 0.25 means roughly a factor-of-two size error is tolerated,
 # but an order of magnitude is not.
 SIZE_OVERRIDE_THRESHOLD = 0.25
+# Below this, the measured aspect ratio argues against the assigned class
+# strongly enough to be worth telling the operator about. It does NOT change
+# the label: the network saw the texture and shadow, the tape measure did not.
+#
+# Calibrated, not guessed. The falloff is inverse-square outside a class's
+# band, so for an aircraft (0.8-3.5) this flags roughly aspect 4.0 and beyond:
+#
+#   aspect 3.5 -> 1.00   inside the band
+#   aspect 3.8 -> 0.85   marginal, not flagged
+#   aspect 4.2 -> 0.71   flagged
+#
+# Set it at 0.45 and a 28 m hull-shaped contact labelled aircraft sails
+# through, which is the exact case this was built for.
+ASPECT_FLAG_THRESHOLD = 0.75
 
 MODEL_NAME = "YOLOv8n-SCTD"
 MODEL_VERSION = VALIDATION.get("model_version", "0.1.0-untrained")
@@ -458,6 +472,12 @@ def _build_detection(survey: SonarSurvey, proposal: dict) -> Detection:
     backscatter = proposal.get("backscatter", 0.0)
     backscatter_db = round(20.0 * float(np.log10(max(backscatter, 1e-3) / 255.0)), 2)
 
+    # Does the measured shape agree with the class the network chose?
+    aspect = length_m / max(width_m, 1e-3)
+    aspect_fit = catalogue.aspect_plausibility(label, aspect)
+    alternative = catalogue.better_shape_match(label, length_m, width_m)
+    disagrees = aspect_fit < ASPECT_FLAG_THRESHOLD and alternative is not None
+
     entry = catalogue.entry_for(label)
     return Detection(
         detection_id=f"WRK-{uuid.uuid4().hex[:8].upper()}",
@@ -470,13 +490,16 @@ def _build_detection(survey: SonarSurvey, proposal: dict) -> Detection:
         acoustic_signature=entry.acoustic_signature,
         operational_note=entry.operational_note,
         size_plausibility=catalogue.size_plausibility(label, length_m),
+        aspect_plausibility=round(aspect_fit, 3),
+        geometry_agrees=not disagrees,
+        geometry_suggests=alternative.value if disagrees else None,
         bbox=bbox,
         geo=geo,
         length_m=length_m,
         width_m=width_m,
         height_estimate_m=round(height_m, 2),
         shadow_length_m=round(shadow_len_m, 2),
-        aspect_ratio=round(length_m / max(width_m, 1e-3), 2),
+        aspect_ratio=round(aspect, 2),
         backscatter_db=backscatter_db,
         review_status=ReviewStatus.PENDING,
         detected_at=datetime.now(timezone.utc),
