@@ -267,6 +267,18 @@ TARGET_LIBRARY: list[tuple[str, int, int, int, float]] = [
     ("uxo", 14, 10, 24, 1.55),
 ]
 
+# What the DEMO line plants.
+#
+# The full library includes boulders and ordnance at 14-18 px, which are
+# realistic seabed clutter but demo badly: they land near the detector's
+# confidence floor, so the register fills with 47%-confidence contacts that say
+# nothing about whether the pipeline works. The demo plants substantial targets
+# only -- the ones a survey would actually be commissioned to find -- and fewer
+# of them, so each is legible on the chart.
+DEMO_TARGETS: list[tuple[str, int, int, int, float]] = [
+    entry for entry in TARGET_LIBRARY if entry[0] in {"shipwreck", "debris_field", "container"}
+]
+
 
 def _synthesise(
     path: Path,
@@ -333,11 +345,11 @@ def _plant_targets(
 ) -> list[PlantedTarget]:
     """Stamp highlight/shadow target pairs into the swath and return ground truth."""
     planted: list[PlantedTarget] = []
-    count = int(rng.integers(5, 9))
+    count = int(rng.integers(3, 6))
 
     for k in range(count):
-        label, h_px, w_px, shadow_px, intensity = TARGET_LIBRARY[
-            int(rng.integers(0, len(TARGET_LIBRARY)))
+        label, h_px, w_px, shadow_px, intensity = DEMO_TARGETS[
+            int(rng.integers(0, len(DEMO_TARGETS)))
         ]
 
         # Keep contacts clear of the nadir gap and of the far-range edge.
