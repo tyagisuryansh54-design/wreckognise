@@ -15,6 +15,7 @@ const LINKS = [
   { id: 'ingest', label: 'Ingest' },
   { id: 'detect', label: 'Detect' },
   { id: 'chart', label: 'Chart' },
+  { id: 'relief', label: 'Relief' },
   { id: 'register', label: 'Register' },
   { id: 'report', label: 'Report' },
 ]

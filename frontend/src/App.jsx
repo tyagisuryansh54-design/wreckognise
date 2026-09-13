@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { lazy, Suspense, useRef } from 'react'
 import { useInView } from './hooks/useMotion'
 import { useSurvey } from './hooks/useSurvey'
 import Hero from './components/Hero'
@@ -8,6 +8,13 @@ import PipelineStatus from './components/PipelineStatus'
 import IngestionBox from './components/IngestionBox'
 import InferenceBox from './components/InferenceBox'
 import MapBox from './components/MapBox'
+/*
+ * three.js more than doubles the bundle -- 112 KB gzipped to 251 KB -- and the
+ * relief view is one panel far down a long page. Loaded on demand instead, so
+ * the cost lands on the reader who scrolls to it rather than on everyone who
+ * opens the site.
+ */
+const ReliefView = lazy(() => import('./components/ReliefView'))
 import ContactRegister from './components/ContactRegister'
 import ActionBox from './components/ActionBox'
 import { ProgressBar } from './components/Primitives'
@@ -193,7 +200,19 @@ export default function App() {
             />
           </Section>
 
-          <Section id="register" label="05 / triage" title="Contacts, dispositioned.">
+          <Section id="relief" label="05 / relief" title="The swath, in three dimensions.">
+            <Suspense
+              fallback={
+                <div className="flex h-80 items-center justify-center rounded border border-ink/10 bg-sand">
+                  <p className="font-mono text-2xs text-ink-dim">loading renderer…</p>
+                </div>
+              }
+            >
+              <ReliefView ingest={ingest} detections={detections} />
+            </Suspense>
+          </Section>
+
+          <Section id="register" label="06 / triage" title="Contacts, dispositioned.">
             <ContactRegister
               simulatedNav={simulatedNav}
               detections={detections}
@@ -203,7 +222,7 @@ export default function App() {
             />
           </Section>
 
-          <Section id="report" label="06 / report" title="Brief and GIS export.">
+          <Section id="report" label="07 / report" title="Brief and GIS export.">
             <ActionBox
               simulatedNav={simulatedNav}
               ingest={ingest}
