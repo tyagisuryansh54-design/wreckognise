@@ -268,9 +268,7 @@ export default function MapBox({ telemetry, detections, selected, onSelect, simu
                     {toDMS(d.geo.longitude, 'lon')}
                   </p>
                   <p className="mt-2 text-[11px]">
-                    <span style={{ color: severityStyle(d.severity).hex }}>
-                      {severityStyle(d.severity).label.toUpperCase()}
-                    </span>
+                    <span style={{ color: '#00FF2D' }}>CONTACT</span>
                     {' · '}
                     {(d.confidence * 100).toFixed(1)}% confidence
                   </p>
@@ -287,24 +285,31 @@ export default function MapBox({ telemetry, detections, selected, onSelect, simu
         )}
 
         {/* Legend floats over the chart rather than stealing card height. */}
+        {/* The legend used to break contacts down by severity. Severity is a
+            property of the CLASS, not of the contact -- with the current model
+            almost everything resolves to shipwreck or aircraft, so the panel
+            read "critical" against nearly every pin and stopped carrying any
+            information. Class counts say something that varies. */}
         {detections.length > 0 && (
-          <div className="pointer-events-none absolute bottom-4 left-4 z-[1000] rounded-xl bg-cream/88 px-3.5 py-2.5 backdrop-blur">
-            <p className="label text-ink/40">Severity</p>
+          <div className="pointer-events-none absolute bottom-4 left-4 z-[1000] rounded bg-cream/88 px-3.5 py-2.5 backdrop-blur">
+            <p className="label text-ink/40">Contacts</p>
             <ul className="mt-1.5 space-y-1">
-              {['critical', 'high', 'medium', 'low'].map((severity) => {
-                const count = detections.filter((d) => d.severity === severity).length
-                if (!count) return null
-                const style = severityStyle(severity)
-                return (
-                  <li key={severity} className="flex items-center gap-2">
-                    <span className={`h-2 w-2 rounded-full ${style.dot}`} />
+              {Object.entries(
+                detections.reduce((acc, d) => {
+                  acc[d.label] = (acc[d.label] ?? 0) + 1
+                  return acc
+                }, {}),
+              )
+                .sort((a, b) => b[1] - a[1])
+                .map(([label, count]) => (
+                  <li key={label} className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-azure" />
                     <span className="font-mono text-2xs text-ink/70">
-                      {style.label}
+                      {classLabel(label)}
                       <span className="ml-1.5 text-ink/40">{count}</span>
                     </span>
                   </li>
-                )
-              })}
+                ))}
             </ul>
           </div>
         )}

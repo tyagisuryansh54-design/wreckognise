@@ -132,22 +132,6 @@ export default function PipelineStatus({ stage, ingest, inference, report, busy 
               })}
             </ul>
           )}
-
-          {summary && (
-            <div className="mt-4 flex flex-wrap gap-1.5 border-t border-ink/8 pt-3">
-              {['critical', 'high', 'medium', 'low'].map((severity) => {
-                const count = summary.by_severity[severity]
-                if (!count) return null
-                const style = severityStyle(severity)
-                return (
-                  <span key={severity} className={`badge ${style.badge}`}>
-                    <span className={`h-1.5 w-1.5 rounded-full ${style.dot}`} />
-                    {style.label} {count}
-                  </span>
-                )
-              })}
-            </div>
-          )}
         </div>
       </div>
     </BentoCard>

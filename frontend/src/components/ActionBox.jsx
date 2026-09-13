@@ -110,7 +110,6 @@ export default function ActionBox({
                 <p className="font-mono text-2xs text-ink/40">{selected.detection_id}</p>
               </div>
               <div className="flex shrink-0 flex-col items-end gap-1.5">
-                <Badge className={style.badgeDark}>{style.label}</Badge>
                 {REVIEW_CHIP[selected.review_status] && (
                   <Badge className={REVIEW_CHIP[selected.review_status]}>
                     {REVIEW_LABELS[selected.review_status]}
