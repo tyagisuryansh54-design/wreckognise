@@ -28,7 +28,15 @@ made on a measurement rather than by taste:
    cheapest way to reduce loss is to predict nothing, and recall collapses.
    They come in capped against the positive count instead.
 
-Evaluated on all three corpora separately afterwards, because a single blended
+A fourth corpus, China Offshore SSS-AI (Zenodo 20048164), contributes NEGATIVES
+only. It is a classification set -- folders, no bounding boxes -- so it cannot
+teach localisation, but its featureless-seabed and hard-negative folders are
+real sonar from four Chinese marginal seas that none of the other corpora
+cover. Measured false-positive rates were 0.19 per frame on AI4Shipwrecks and
+0.085 on Gavia; this is the lever on both. Its other folders hold real objects
+that are not our classes, and are dropped for the same reason NOMBO is.
+
+Evaluated on all corpora separately afterwards, because a single blended
 number would hide exactly the transfer behaviour this is trying to fix.
 """
 
@@ -55,13 +63,32 @@ AIRCRAFT, HUMAN, SHIP, MINE = 0, 1, 2, 3
 EPOCHS = int(os.environ.get("WRECK_EPOCHS", "80"))
 IMGSZ = int(os.environ.get("WRECK_IMGSZ", "1024"))
 BATCH = int(os.environ.get("WRECK_BATCH", "8"))          # 1024px needs a smaller batch
-NEG_RATIO = float(os.environ.get("WRECK_NEG", "0.45"))   # empties per positive frame
+# Negatives as a share of all positive images. A detector shown nothing but
+# targets learns that something is always present; one shown mostly emptiness
+# learns that predicting nothing is usually right. 0.2 keeps false positives
+# under pressure without putting recall at risk.
+NEG_RATIO = float(os.environ.get("WRECK_NEG", "0.20"))
 TILE, STRIDE = 512, 384
 MIN_BLOB_PX, MIN_BOX_PX = 60, 12
 rng = random.Random(1337)
 
 GAVIA = {"2010.zip": 43169008, "2015.zip": 43169002, "2017.zip": 43169005,
          "2018.zip": 43169011, "2021.zip": 43168999}
+
+# China Offshore SSS-AI (Zenodo 20048164, 3,255 chips, four Chinese marginal
+# seas). A CLASSIFICATION set -- folders, no bounding boxes -- so it cannot
+# teach the detector to localise anything. Two of its folders are still the
+# most useful thing available: featureless seabed and deliberately confusing
+# non-targets, from seas none of the other corpora cover.
+CHINA_URL = (
+    "https://zenodo.org/api/records/20048164/files/"
+    "China-Offshore-SSS-AI_Zenodo_public_upload.zip/content"
+)
+# Only these two. The other folders -- pipeline_or_cable, riprap, trench_gully,
+# scour_mark -- contain REAL objects that are simply not one of our classes.
+# Feeding those in as background teaches the model to ignore real returns,
+# which is the same mistake as treating Gavia's NOMBO frames as empty.
+CHINA_NEGATIVE_FOLDERS = ("seabed_surface", "hard_negative")
 
 
 def step(msg: str) -> None:
@@ -129,7 +156,18 @@ def fetch():
             with zipfile.ZipFile(target) as z:
                 z.extractall(gav)
     print("  Gavia images :", len(list(gav.rglob("*.jpg"))))
-    return sctd, (ai4 if ai4.exists() else None), gav
+
+    china = WORK / "china"
+    china.mkdir(parents=True, exist_ok=True)
+    if not any(china.rglob("*.png")) and not any(china.rglob("*.jpg")):
+        archive = china / "china.zip"
+        print("  downloading China Offshore SSS-AI (922 MB)...", flush=True)
+        sh("curl", "-sL", CHINA_URL, "-o", str(archive))
+        with zipfile.ZipFile(archive) as z:
+            z.extractall(china)
+        archive.unlink(missing_ok=True)      # 922 MB back to the disk budget
+    print("  China images :", len(list(china.rglob("*.png"))) + len(list(china.rglob("*.jpg"))))
+    return sctd, (ai4 if ai4.exists() else None), gav, china
 
 
 # ----------------------------------------------------------------- 3. build
@@ -157,7 +195,7 @@ def parse_voc(path: Path):
     return w, h, out
 
 
-def build(sctd: Path, ai4, gav: Path) -> None:
+def build(sctd: Path, ai4, gav: Path, china: Path) -> None:
     step("3/6  build the four-class corpus")
     if (OUT / "data.yaml").is_file() and any((OUT / "images/train").glob("*.jpg")):
         print("  already built")
@@ -248,8 +286,36 @@ def build(sctd: Path, ai4, gav: Path) -> None:
                 positives.append((jpg, milco))
             elif not nombo:
                 empties.append(jpg)          # truly empty, not "NOMBO only"
+        # --- China Offshore SSS-AI: featureless seabed and hard negatives ---
+        china_negs = []
+        for folder in CHINA_NEGATIVE_FOLDERS:
+            for pattern in ("*.png", "*.jpg"):
+                china_negs.extend(
+                    p for p in china.rglob(pattern) if p.parent.name == folder
+                )
+        rng.shuffle(china_negs)
+        print(f"  China          {len(china_negs)} negative chips available "
+              f"({', '.join(CHINA_NEGATIVE_FOLDERS)})")
+
+        # One budget for negatives, shared across sources, sized against EVERY
+        # positive image in the corpus -- not just Gavia's.
+        #
+        # Taking the ratio off Gavia's 304 positives alone gave a budget of 136
+        # against a training set of roughly 1,300, which is a ~10% negative
+        # fraction arrived at by accident. The number should mean what it says:
+        # negatives as a share of the whole set.
+        already_written = len(list((OUT / "images/train").glob("*"))) + len(
+            list((OUT / "images/val").glob("*"))
+        )
+        total_positives = already_written + len(positives)
+        budget = int(total_positives * NEG_RATIO)
+        print(f"  positives so far {total_positives}")
         rng.shuffle(empties)
-        empties = empties[: int(len(positives) * NEG_RATIO)]
+        gavia_share = min(len(empties), budget // 2)
+        china_share = min(len(china_negs), budget - gavia_share)
+        empties = empties[:gavia_share]
+        china_negs = china_negs[:china_share]
+        print(f"  negative budget {budget}: {len(empties)} Gavia + {len(china_negs)} China")
         print(f"  Gavia          {len(positives)} with mines, {len(empties)} empty frames kept")
 
         def write_gavia(items, split):
@@ -265,6 +331,21 @@ def build(sctd: Path, ai4, gav: Path) -> None:
         write_gavia(positives[cut:], "train"); write_gavia(positives[:cut], "val")
         ecut = max(1, round(len(empties) * 0.2))
         write_gavia(empties[ecut:], "train"); write_gavia(empties[:ecut], "val")
+
+        def write_china(items, split):
+            """Copied with an EMPTY label file. YOLO reads that as 'this frame
+            was looked at and contains nothing', which is the whole point --
+            omitting the label entirely would make it an unlabelled image and
+            it would be skipped instead of learned from."""
+            for src in items:
+                stem = f"cn_{src.parent.parent.name}_{src.parent.name}_{src.stem}"
+                shutil.copy2(src, OUT / "images" / split / f"{stem}{src.suffix}")
+                (OUT / "labels" / split / f"{stem}.txt").write_text("")
+
+        ccut = max(1, round(len(china_negs) * 0.2)) if china_negs else 0
+        if china_negs:
+            write_china(china_negs[ccut:], "train")
+            write_china(china_negs[:ccut], "val")
 
         (OUT / "data.yaml").write_text(
             f"path: {OUT}\ntrain: images/train\nval: images/val\n\nnames:\n"
@@ -363,8 +444,8 @@ def export(best: str, res: dict) -> None:
 
 def main() -> int:
     install()
-    sctd, ai4, gav = fetch()
-    build(sctd, ai4, gav)
+    sctd, ai4, gav, china = fetch()
+    build(sctd, ai4, gav, china)
     best = train()
     res = measure(best)
     export(best, res)
