@@ -18,5 +18,12 @@ Pillow==11.0.0
 # instance has 512 MB RAM and onnxruntime needs a fraction of that.
 onnxruntime==1.20.1
 
+# Graph surgery for the Eigen-CAM attention maps: the exported model emits only
+# boxes and scores, so app/services/attention.py appends the neck's P3 tensor to
+# the graph's outputs. Needed at runtime, not just at export time -- without it
+# the attention endpoint degrades to 503 while detection carries on working,
+# which is exactly how it reached production unnoticed.
+onnx==1.17.0
+
 # Reporting
 reportlab==4.2.5
