@@ -119,6 +119,31 @@ def read_sonar_file(path: Path, survey_id: str) -> SonarSurvey:
     return _synthesise(path, survey_id, reason=f"no decoder for {suffix}, modelled swath")
 
 
+# A real line is oversampled across-track far beyond anything downstream can
+# use. The USGS Grand Bay lines carry 4096 samples per side over a 100 m range
+# -- 2.4 cm per sample -- and the detector letterboxes the whole swath into
+# 512 px regardless. A 1695-ping line at full width is 13.9 MP and costs 15 s
+# of preprocessing on a fast laptop, which is a client timeout on half a vCPU.
+#
+# Only COLUMNS are reduced. Rows are pings, and `ping_at(row)` indexes the
+# telemetry list by row, so dropping rows would silently misattribute every
+# contact's position by the resampling ratio.
+MAX_SWATH_SAMPLES = 2048
+
+
+def _fit_swath_width(waterfall: np.ndarray) -> np.ndarray:
+    """Narrow an oversampled swath. Ranges stay correct: samples_per_side is
+    read back off the waterfall, so metres-per-sample rescales with it."""
+    import cv2
+
+    height, width = waterfall.shape[:2]
+    if width <= MAX_SWATH_SAMPLES:
+        return waterfall
+    # Even width keeps the port/starboard split exactly on nadir.
+    target = MAX_SWATH_SAMPLES - (MAX_SWATH_SAMPLES % 2)
+    return cv2.resize(waterfall, (target, height), interpolation=cv2.INTER_AREA)
+
+
 # --------------------------------------------------------------------------- #
 # XTF via pyxtf
 # --------------------------------------------------------------------------- #
@@ -163,7 +188,7 @@ def _read_xtf(path: Path, survey_id: str) -> SonarSurvey:
     # Port channel is stored outward-from-nadir; mirror it so nadir sits centre-frame.
     port = np.stack([r[:width][::-1] for r in port_rows])
     starboard = np.stack([r[:width] for r in starboard_rows])
-    waterfall = _to_uint8(np.hstack([port, starboard]))
+    waterfall = _fit_swath_width(_to_uint8(np.hstack([port, starboard])))
 
     metadata = _build_metadata(
         survey_id=survey_id,
