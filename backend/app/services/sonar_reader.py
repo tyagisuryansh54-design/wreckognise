@@ -548,6 +548,35 @@ def list_samples() -> list[dict]:
         return []
 
 
+# A sonar waterfall is a few hundred pixels across a swath. A photograph of
+# one, or a screen capture off an acquisition display, is routinely 12 MP --
+# and the API runs on a 512 MB instance that already holds onnxruntime, the
+# network and OpenCV. Measured, a 3000x4000 upload peaks at 246 MB of Python
+# allocations and 13 s of preprocessing on a fast laptop; on half a vCPU that
+# is an OOM kill or a client timeout, which reaches the operator as "the
+# upload failed" with nothing to act on.
+#
+# 4 MP is well above any real swath and leaves the detector far more detail
+# than it consumes -- it tiles at 512 px regardless.
+MAX_INPUT_PIXELS = 4_000_000
+
+
+def _fit_pixel_budget(image):
+    """Downscale an oversized upload, and say so. Returns (image, note)."""
+    import cv2
+
+    h, w = image.shape[:2]
+    if h * w <= MAX_INPUT_PIXELS:
+        return image, ""
+    scale = (MAX_INPUT_PIXELS / (h * w)) ** 0.5
+    nw, nh = max(1, int(w * scale)), max(1, int(h * scale))
+    # INTER_AREA is the correct kernel for shrinking: it averages the source
+    # pixels it covers, so speckle is attenuated rather than point-sampled into
+    # aliasing that the denoise stage would then have to fight.
+    resized = cv2.resize(image, (nw, nh), interpolation=cv2.INTER_AREA)
+    return resized, f"downscaled {w}x{h} to {nw}x{nh} to fit the processing budget"
+
+
 def read_image_sample(filename: str, survey_id: str) -> SonarSurvey:
     """Load one of the BUNDLED sonar images by name."""
     path = SAMPLES_DIR / Path(filename).name
@@ -575,6 +604,8 @@ def read_image_file(path: Path, survey_id: str) -> SonarSurvey:
     if image is None:
         raise ValueError(f"could not decode image '{path.name}'")
 
+    image, rescaled = _fit_pixel_budget(image)
+
     pings = image.shape[0]
     origin = None
     for entry in list_samples():
@@ -588,7 +619,9 @@ def read_image_file(path: Path, survey_id: str) -> SonarSurvey:
         fmt="image",
         telemetry=telemetry,
         waterfall=image,
-        parser="real sonar image (SCTD) — navigation simulated",
+        parser=(
+            "real sonar image (SCTD) — navigation simulated" + (f"; {rescaled}" if rescaled else "")
+        ),
         frequency_khz=(455.0, 455.0),
     )
     return SonarSurvey(survey_id, metadata, telemetry, image)
