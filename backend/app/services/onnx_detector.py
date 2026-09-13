@@ -114,6 +114,10 @@ def detect(image: np.ndarray, conf_threshold: float) -> list[dict]:
     boxes_xywh = boxes_xywh[keep]
     confidences = confidences[keep]
     class_ids = class_ids[keep]
+    # The whole score vector, not just its maximum. The argmax is the answer;
+    # the rest of the vector is how close the runners-up came, which is the
+    # difference between "a ship" and "a ship, but only just".
+    kept_scores = class_scores[keep]
 
     # Undo letterboxing: centre-xywh in network space -> xywh in image space.
     cx, cy, bw, bh = boxes_xywh.T
@@ -140,6 +144,11 @@ def detect(image: np.ndarray, conf_threshold: float) -> list[dict]:
                 "raw_class": CLASS_NAMES[int(class_ids[i])]
                 if int(class_ids[i]) < len(CLASS_NAMES)
                 else "unknown",
+                "class_scores": {
+                    name: float(kept_scores[i][j])
+                    for j, name in enumerate(CLASS_NAMES)
+                    if j < kept_scores.shape[1]
+                },
                 # The network does not measure shadows; detector.py fills this
                 # in from the image so height-from-shadow still works.
                 "shadow_px": 0,

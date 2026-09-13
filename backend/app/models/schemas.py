@@ -169,11 +169,23 @@ class GeoSolution(BaseModel):
     formula: str = Field(description="Human-readable trace of the solve")
 
 
+class ClassScore(BaseModel):
+    """One class and the share of the network's score vector it holds."""
+
+    label: str
+    display_name: str
+    score: float = Field(..., ge=0, le=1)
+
+
 class Detection(BaseModel):
     detection_id: str
     survey_id: str
     label: AnomalyClass
     confidence: float = Field(..., ge=0, le=1)
+    # The full ranked score vector behind `confidence`, highest first. Absent
+    # when the CV fallback ran -- that path scores geometry, not appearance,
+    # and has no per-class opinion to report.
+    class_scores: list[ClassScore] | None = None
     severity: Severity
     bbox: BoundingBox
     geo: GeoSolution

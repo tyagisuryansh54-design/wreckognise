@@ -11,6 +11,16 @@ const REVIEW_TONES = {
   dismissed: 'text-ink/35',
 }
 
+/**
+ * A score of 0.00003 is not "0.0%" -- printing that says the network ruled the
+ * class out, when in fact it scored it and the number is simply tiny.
+ */
+function pct(score) {
+  const value = score * 100
+  if (value > 0 && value < 0.1) return '<0.1%'
+  return `${value.toFixed(1)}%`
+}
+
 const FILTERS = [
   { id: 'all', label: 'All' },
   { id: 'flagged', label: 'Flagged' },
@@ -174,6 +184,61 @@ export default function ContactRegister({ detections, selected, onSelect, summar
                     height="h-1"
                   />
                 </div>
+
+                {/* The full score vector, not just the winner. A 96/2/1 split
+                    is a decision; a 41/39/20 split is a coin-flip, and an
+                    operator can only tell those apart if both are shown. */}
+                {d.class_scores?.length > 0 && (
+                  <div className="mt-3 space-y-1">
+                    <p
+                      className={`font-mono text-2xs uppercase tracking-wide ${
+                        active ? 'text-ink/35' : 'text-ink/30'
+                      }`}
+                      title="One independent score per class, as the network emitted them. They do not sum to 100%."
+                    >
+                      Class scores
+                    </p>
+                    {d.class_scores.map((c, i) => (
+                      <div key={c.label} className="flex items-center gap-2">
+                        <span
+                          className={`w-24 shrink-0 truncate font-mono text-2xs ${
+                            i === 0 ? 'text-ink/80' : 'text-ink/40'
+                          }`}
+                          title={c.display_name}
+                        >
+                          {c.display_name}
+                        </span>
+                        <span
+                          className={`h-1 flex-1 overflow-hidden rounded-full ${
+                            active ? 'bg-cream/12' : 'bg-ink/8'
+                          }`}
+                        >
+                          <span
+                            className={`block h-full rounded-full ${
+                              i === 0
+                                ? active
+                                  ? 'bg-aqua'
+                                  : 'bg-azure'
+                                : 'bg-ink/25'
+                            }`}
+                            style={{ width: `${Math.max(c.score * 100, 1.5)}%` }}
+                          />
+                        </span>
+                        <span
+                          className={`w-12 shrink-0 text-right font-mono text-2xs tabular-nums ${
+                            i === 0
+                              ? active
+                                ? 'text-aqua'
+                                : 'text-azure'
+                              : 'text-ink/40'
+                          }`}
+                        >
+                          {pct(c.score)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 <div
                   className={`mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-2xs ${

@@ -217,10 +217,39 @@ def _detect_trained(image: np.ndarray, conf_thr: float) -> list[dict]:
 
     for p in proposals:
         p["label"] = catalogue.resolve(p.pop("raw_class", ""))
+        p["class_scores"] = _rank_class_scores(p.pop("class_scores", None))
         p["shadow_px"] = _measure_shadow(
             shadow_mask, p["x"], p["y"], p["w"], p["h"], nadir
         )
     return proposals
+
+
+def _rank_class_scores(raw: dict | None) -> list[dict]:
+    """Rank the network's per-class scores, highest first.
+
+    Reported exactly as the head emitted them. A YOLOv8 classification head is
+    an independent sigmoid per class, so these do not sum to 100% and must not
+    be normalised to make them: rescaling a near-one-hot vector prints 99.9%
+    next to a stated confidence of 89.6% and invites the obvious question.
+
+    The runners-up are the point. A 85/0.03/0.01 split is a decision; a
+    41/39/20 split is a coin-flip the operator should look at themselves. Only
+    the winner ever reached the UI before, which made those two look identical.
+    """
+    if not raw:
+        return []
+    ranked = []
+    for name, value in raw.items():
+        label = catalogue.resolve(name)
+        ranked.append(
+            {
+                "label": label.value,
+                "display_name": catalogue.entry_for(label).display_name,
+                "score": round(max(0.0, min(1.0, float(value))), 5),
+            }
+        )
+    ranked.sort(key=lambda entry: entry["score"], reverse=True)
+    return ranked
 
 
 def _cuda_available() -> bool:
@@ -489,6 +518,7 @@ def _build_detection(survey: SonarSurvey, proposal: dict) -> Detection:
         survey_id=survey.survey_id,
         label=label,
         confidence=round(float(proposal["confidence"]), 4),
+        class_scores=proposal.get("class_scores") or None,
         severity=_severity_for(label),
         display_name=entry.display_name,
         category=entry.category,
