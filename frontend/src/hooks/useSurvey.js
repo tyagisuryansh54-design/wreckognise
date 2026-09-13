@@ -172,6 +172,37 @@ export function useSurvey() {
     [detections, selectedId],
   )
 
+  /**
+   * Acknowledge a hazard contact.
+   *
+   * Not routed through `run()` like the pipeline stages: acknowledging is not
+   * a stage, and blocking the whole dashboard behind a progress bar to record
+   * "I saw this" would be absurd. It updates the one detection in place.
+   */
+  const acknowledgeHazard = useCallback(
+    async (detectionId, operator = 'operator') => {
+      if (!ingest) return null
+      try {
+        const updated = await api.acknowledge(ingest.survey_id, detectionId, operator)
+        setInference((current) =>
+          current
+            ? {
+                ...current,
+                detections: current.detections.map((d) =>
+                  d.detection_id === updated.detection_id ? updated : d,
+                ),
+              }
+            : current,
+        )
+        return updated
+      } catch (err) {
+        setError(err.message ?? String(err))
+        return null
+      }
+    },
+    [ingest],
+  )
+
   const stage = useMemo(() => {
     if (inference) return 'complete'
     if (ingest) return 'preprocessed'
@@ -201,5 +232,6 @@ export function useSurvey() {
     detect,
     generateReport,
     reviewContact,
+    acknowledgeHazard,
   }
 }

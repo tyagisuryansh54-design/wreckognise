@@ -197,6 +197,12 @@ class Detection(BaseModel):
     # having it silently resolved for them.
     geometry_agrees: bool = True
     geometry_suggests: str | None = None
+    # Safety-critical classes take a separate path from ordinary review: they
+    # are flagged at detection time and cannot leave the queue on a stray
+    # click, only on an explicit acknowledgement naming who saw it.
+    priority: Literal["routine", "hazard"] = "routine"
+    acknowledged_by: str | None = None
+    acknowledged_at: str | None = None
 
     review_status: ReviewStatus = ReviewStatus.PENDING
     notes: str | None = None

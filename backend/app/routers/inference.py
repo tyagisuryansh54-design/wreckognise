@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+import logging
+from datetime import datetime, timezone
+
+import cv2
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import FileResponse
 
 from ..config import settings
 from ..models.schemas import (
@@ -13,10 +18,13 @@ from ..models.schemas import (
     ReviewRequest,
     SurveyStatus,
 )
+from ..services import attention
 from ..services.detector import run_inference, summarise
 from ..services.georeference import solve_pixel
 from ..services.preprocessing import render_annotated
 from ..services.store import store
+
+logger = logging.getLogger("wreckognise")
 
 router = APIRouter(prefix="/api/inference", tags=["inference"])
 
@@ -94,6 +102,61 @@ async def review_detection(
                 detection.notes = f"{detection.notes}\n{stamp}" if detection.notes else stamp
             return detection
     raise HTTPException(status_code=404, detail=f"Unknown detection '{detection_id}'")
+
+
+@router.post("/{survey_id}/detections/{detection_id}/acknowledge", response_model=Detection)
+async def acknowledge_hazard(
+    survey_id: str, detection_id: str, operator: str = Query(default="operator")
+) -> Detection:
+    """Record that a human has seen a hazard contact.
+
+    Separate from /review on purpose. Review is a judgement -- flag, confirm,
+    dismiss. This is only an assertion that a person looked, and it is what the
+    alert requires before it will clear. Conflating the two would let a hazard
+    leave the queue as a side effect of routine triage.
+    """
+    survey = _require(survey_id)
+    for detection in survey.detections:
+        if detection.detection_id == detection_id:
+            if detection.priority != "hazard":
+                raise HTTPException(
+                    status_code=409,
+                    detail="Only hazard contacts require acknowledgement.",
+                )
+            detection.acknowledged_by = operator
+            detection.acknowledged_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
+            logger.warning(
+                "hazard acknowledged | %s %s by %s", survey_id, detection_id, operator
+            )
+            return detection
+    raise HTTPException(status_code=404, detail=f"Unknown detection '{detection_id}'")
+
+
+@router.get("/{survey_id}/detections/{detection_id}/attention")
+async def detection_attention(survey_id: str, detection_id: str) -> FileResponse:
+    """Eigen-CAM heat map for one contact, computed on demand and cached.
+
+    Not generated during detection: it is a second forward pass plus an SVD per
+    contact, and most contacts are never asked about. Cached by detection id so
+    toggling the overlay twice costs one computation.
+    """
+    survey = _require(survey_id)
+    target = next((d for d in survey.detections if d.detection_id == detection_id), None)
+    if target is None:
+        raise HTTPException(status_code=404, detail=f"Unknown detection '{detection_id}'")
+    if not attention.is_available():
+        raise HTTPException(status_code=503, detail="Attention maps unavailable for this engine.")
+
+    path = settings.processed_dir / f"{survey_id}_{detection_id}_cam.png"
+    if not path.exists():
+        image = survey.detect_input if survey.detect_input is not None else survey.waterfall
+        heat = attention.heatmap(
+            image, bbox=(target.bbox.x, target.bbox.y, target.bbox.width, target.bbox.height)
+        )
+        if heat is None:
+            raise HTTPException(status_code=503, detail="Could not compute an attention map.")
+        cv2.imwrite(str(path), heat)
+    return FileResponse(path, media_type="image/png")
 
 
 @router.get("/{survey_id}/georeference", response_model=GeoSolution)

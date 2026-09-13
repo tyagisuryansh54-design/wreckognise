@@ -10,6 +10,7 @@ import {
 } from './Icons'
 import { api } from '../utils/api'
 import { REVIEW_LABELS, classLabel, downloadText, severityStyle, toDMS } from '../utils/format'
+import AttentionToggle from './AttentionToggle'
 
 const DISPOSITIONS = [
   {
@@ -47,6 +48,7 @@ const FORMATS = [
  */
 export default function ActionBox({
   simulatedNav = false,
+  surveyId,
   ingest,
   inference,
   selected,
@@ -140,6 +142,9 @@ export default function ActionBox({
                 </>
               )}
             </div>
+
+            {/* Why did it fire? One click, computed on demand. */}
+            <AttentionToggle className="mt-4" surveyId={surveyId} detection={selected} />
 
             {selected.notes && (
               <p className="mt-3 rounded-lg bg-amber/10 px-3 py-2 font-serif text-xs italic leading-relaxed text-amber">

@@ -194,6 +194,20 @@ export const api = {
   georeference: (surveyId, x, y) =>
     request(`/api/inference/${surveyId}/georeference?x=${x}&y=${y}`),
 
+  /** Eigen-CAM heat map for one contact. A URL, not a fetch: the browser
+   *  caches the image and the backend caches the computation. */
+  attentionUrl: (surveyId, detectionId) =>
+    `${BASE}/api/inference/${surveyId}/detections/${detectionId}/attention`,
+
+  /** Assert that a human has seen a hazard contact. Deliberately not `review`:
+   *  review is a judgement, this is only "I looked". */
+  acknowledge: (surveyId, detectionId, operator = 'operator') =>
+    request(
+      `/api/inference/${surveyId}/detections/${detectionId}/acknowledge` +
+        `?operator=${encodeURIComponent(operator)}`,
+      { method: 'POST' },
+    ),
+
   review: (surveyId, detectionId, payload) =>
     request(`/api/inference/${surveyId}/detections/${detectionId}/review`, {
       method: 'PATCH',

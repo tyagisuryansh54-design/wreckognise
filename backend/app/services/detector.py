@@ -95,6 +95,11 @@ SIZE_OVERRIDE_THRESHOLD = 0.25
 # through, which is the exact case this was built for.
 ASPECT_FLAG_THRESHOLD = 0.75
 
+# Classes that must not sit quietly in the ordinary review list. Ordnance on a
+# survey line is a diver-safety matter before it is a data point, so it is
+# marked the moment it is classified rather than being triaged in turn.
+HAZARD_CLASSES = {AnomalyClass.UXO}
+
 MODEL_NAME = "YOLOv8n-SCTD"
 MODEL_VERSION = VALIDATION.get("model_version", "0.1.0-untrained")
 
@@ -493,6 +498,7 @@ def _build_detection(survey: SonarSurvey, proposal: dict) -> Detection:
         aspect_plausibility=round(aspect_fit, 3),
         geometry_agrees=not disagrees,
         geometry_suggests=alternative.value if disagrees else None,
+        priority="hazard" if label in HAZARD_CLASSES else "routine",
         bbox=bbox,
         geo=geo,
         length_m=length_m,

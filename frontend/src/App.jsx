@@ -3,6 +3,7 @@ import { useInView } from './hooks/useMotion'
 import { useSurvey } from './hooks/useSurvey'
 import Hero from './components/Hero'
 import SiteNav from './components/SiteNav'
+import HazardAlert from './components/HazardAlert'
 import SonarBackdrop from './components/SonarBackdrop'
 import PipelineStatus from './components/PipelineStatus'
 import IngestionBox from './components/IngestionBox'
@@ -68,6 +69,7 @@ export default function App() {
     detect,
     generateReport,
     reviewContact,
+    acknowledgeHazard,
   } = survey
 
   /*
@@ -92,6 +94,14 @@ export default function App() {
           busy={busy}
           onExplore={() => loadDemo('nlm')}
           onUpload={() => uploadRef.current?.click()}
+        />
+
+        {/* Above the pipeline, deliberately: ordnance must not wait its turn
+            in the register. */}
+        <HazardAlert
+          detections={detections}
+          onAcknowledge={acknowledgeHazard}
+          onSelect={setSelectedId}
         />
 
         {/*
@@ -224,6 +234,7 @@ export default function App() {
 
           <Section id="report" label="07 / report" title="Brief and GIS export.">
             <ActionBox
+              surveyId={ingest?.survey_id}
               simulatedNav={simulatedNav}
               ingest={ingest}
               inference={inference}
