@@ -13,6 +13,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from .config import settings
+from .middleware import (
+    BodySizeLimitMiddleware,
+    RateLimitMiddleware,
+    SecurityHeadersMiddleware,
+)
 from .models.schemas import HealthResponse
 from .routers import catalogue as catalogue_router, ingest, inference, reports
 from .services import onnx_detector
@@ -54,13 +59,22 @@ async def lifespan(_: FastAPI):
     logger.info("%s shutting down", settings.app_name)
 
 
+_docs_enabled = not settings.is_production or settings.expose_docs_in_production
+_docs_url = "/docs" if _docs_enabled else None
+_redoc_url = "/redoc" if _docs_enabled else None
+_openapi_url = "/openapi.json" if _docs_enabled else None
+
 app = FastAPI(
     lifespan=lifespan,
     title="Wreckognise API",
     description=DESCRIPTION,
     version=settings.app_version,
-    docs_url="/docs",
-    redoc_url="/redoc",
+    # A complete map of the attack surface, and Swagger pulls its assets from a
+    # CDN that no strict CSP should have to allow. Off in production unless
+    # explicitly re-enabled.
+    docs_url=_docs_url,
+    redoc_url=_redoc_url,
+    openapi_url=_openapi_url,
     openapi_tags=[
         {"name": "ingestion", "description": "Raw sonar upload, decode and preprocessing."},
         {"name": "inference", "description": "YOLOv8 detection, georeferencing and review."},
@@ -70,14 +84,38 @@ app = FastAPI(
     ],
 )
 
+# --- middleware ---------------------------------------------------------- #
+# Starlette runs these in REVERSE registration order: the last one added is the
+# outermost, and sees the request first and the response last. Reading upward,
+# the effective chain is
+#
+#     SecurityHeaders -> CORS -> RateLimit -> BodySizeLimit -> routes
+#
+# and each position is load-bearing. SecurityHeaders is outermost so the headers
+# land on EVERY response, including the 413s and 429s the inner layers generate
+# themselves -- a rejection is still a response an attacker can see. CORS sits
+# above the throttle so a browser can actually read a 429 instead of reporting
+# it as an opaque network failure. BodySizeLimit is innermost of the three
+# because it is the only one that touches the request body, and there is no
+# point buffering a body for a request already being thrown away.
+
+app.add_middleware(BodySizeLimitMiddleware)
+app.add_middleware(RateLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
     allow_origin_regex=settings.cors_origin_regex,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    # There are no cookies and no Authorization header anywhere in this API, so
+    # credentialed cross-origin requests are not a thing it needs to support.
+    # Leaving this on widened the policy for no benefit, and it is the flag that
+    # turns a loose origin regex from untidy into exploitable.
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
+    allow_headers=["Content-Type", "Accept"],
+    max_age=600,
 )
+app.add_middleware(SecurityHeadersMiddleware)
+
 
 # Rendered waterfalls and annotated frames are served straight off disk.
 app.mount("/static", StaticFiles(directory=str(settings.storage_dir)), name="static")

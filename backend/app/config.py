@@ -15,7 +15,65 @@ class Settings(BaseSettings):
 
     app_name: str = "Wreckognise"
     app_version: str = "1.0.0"
-    debug: bool = True
+    # Defaults to off. A debug flag that defaults ON ships verbose logging and
+    # framework internals to production the moment someone forgets an env var,
+    # and nothing in development is harmed by having to opt in.
+    debug: bool = False
+    environment: str = "development"    # set WRECKOGNISE_ENVIRONMENT=production
+
+    @property
+    def is_production(self) -> bool:
+        return self.environment.strip().lower() in {"production", "prod"}
+
+    # --- security ---
+    # Non-upload routes carry a survey id and a few flags. A megabyte is three
+    # orders of magnitude of headroom.
+    max_json_body_bytes: int = 1_048_576
+
+    # Two throttle tiers. "heavy" covers decode/denoise/inference, which cost
+    # 8-40 s of CPU each on a 0.5 vCPU instance; "light" covers the rest.
+    rate_limit_heavy: int = 12
+    rate_limit_heavy_window_s: int = 300
+    rate_limit_light: int = 120
+    rate_limit_light_window_s: int = 60
+
+    # Serve the interactive API docs only outside production. They are a
+    # complete map of the attack surface and pull scripts from a CDN, which no
+    # strict CSP should have to accommodate.
+    expose_docs_in_production: bool = False
+
+    # Origins the browser may load subresources from. Leaflet basemap tiles come
+    # from Esri, fonts from Google, waterfall PNGs from the API itself.
+    csp_img_src: str = "https://server.arcgisonline.com"
+    csp_connect_src: str = ""
+
+    @property
+    def csp_header(self) -> str:
+        """Content-Security-Policy for API-origin responses.
+
+        style-src carries 'unsafe-inline' and that is not an oversight: Leaflet
+        positions every tile by writing element.style, and CSP governs inline
+        style attributes. Dropping it does not harden anything meaningful here
+        -- these responses are JSON and PNG, not HTML -- and it silently breaks
+        the chart. Stated plainly rather than left for someone to rediscover.
+        """
+        img = " ".join(x for x in ("'self'", "data:", "blob:", self.csp_img_src) if x)
+        connect = " ".join(x for x in ("'self'", self.csp_connect_src) if x)
+        return "; ".join(
+            (
+                "default-src 'self'",
+                "base-uri 'self'",
+                "frame-ancestors 'none'",
+                "object-src 'none'",
+                "script-src 'self'",
+                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+                "font-src 'self' https://fonts.gstatic.com",
+                f"img-src {img}",
+                f"connect-src {connect}",
+                "form-action 'self'",
+                "upgrade-insecure-requests",
+            )
+        )
 
     # --- storage ---
     storage_dir: Path = BASE_DIR / "storage"

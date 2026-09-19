@@ -25,6 +25,18 @@ services:
         value: "3.11.9"
       - key: WRECKOGNISE_DEBUG
         value: "false"
+      # Switches on HSTS, the Content-Security-Policy, and the /docs lockdown.
+      # Without it the hardening middleware runs in its development posture and
+      # sends neither header -- the app still works, it is just not hardened,
+      # which is the failure mode that goes unnoticed.
+      - key: WRECKOGNISE_ENVIRONMENT
+        value: "production"
+      # Throttle budget for the expensive routes (decode / denoise / inference),
+      # per client address per 5 minutes. Left overridable because a demo behind
+      # a single venue NAT puts every viewer on one address: if a room full of
+      # people is going to try the dashboard at once, raise this first.
+      - key: WRECKOGNISE_RATE_LIMIT_HEAVY
+        sync: false
       # Set this to your deployed dashboard origin after the frontend is live.
       - key: WRECKOGNISE_CORS_ORIGINS
         sync: false

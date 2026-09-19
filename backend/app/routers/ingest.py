@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import shutil
+import logging
 import uuid
 from pathlib import Path
 
@@ -24,6 +24,8 @@ from ..services.sonar_reader import (
 )
 from ..services.store import store
 
+logger = logging.getLogger("wreckognise.security")
+
 router = APIRouter(prefix="/api/ingest", tags=["ingestion"])
 
 
@@ -39,6 +41,7 @@ async def upload_sonar(
     suffix = Path(filename).suffix.lower()
 
     if suffix not in settings.allowed_extensions:
+        logger.warning("upload rejected | name=%s reason=bad-extension suffix=%s", filename, suffix)
         raise HTTPException(
             status_code=415,
             detail=(
@@ -50,18 +53,36 @@ async def upload_sonar(
     survey_id = f"SVY-{uuid.uuid4().hex[:10].upper()}"
     stored_path = settings.upload_dir / f"{survey_id}{suffix}"
 
+    # Enforce the ceiling AS IT WRITES, not afterwards. Copying the whole body
+    # to disk and then measuring it means an attacker gets to fill the
+    # container's ephemeral disk first and is merely told off second -- the
+    # write has already happened, and on a small instance that is the outage.
+    # Chunked uploads have no Content-Length to pre-screen, so the only reliable
+    # place to stop is mid-stream.
+    limit_bytes = settings.max_upload_mb * 1_048_576
+    written = 0
+    oversize = False
     try:
         with stored_path.open("wb") as target:
-            shutil.copyfileobj(file.file, target, length=1024 * 1024)
+            while chunk := file.file.read(1024 * 1024):
+                written += len(chunk)
+                if written > limit_bytes:
+                    oversize = True
+                    break
+                target.write(chunk)
     finally:
         await file.close()
 
-    size_mb = stored_path.stat().st_size / 1_048_576
-    if size_mb > settings.max_upload_mb:
+    if oversize:
         stored_path.unlink(missing_ok=True)
+        logger.warning(
+            "upload rejected | name=%s reason=over-limit limit_mb=%d",
+            filename,
+            settings.max_upload_mb,
+        )
         raise HTTPException(
             status_code=413,
-            detail=f"File is {size_mb:.1f} MB; the limit is {settings.max_upload_mb} MB.",
+            detail=f"File exceeds the {settings.max_upload_mb} MB limit.",
         )
 
     return _process(survey_id, stored_path, filename, denoise_method, apply_tvg, apply_clahe)
