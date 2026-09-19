@@ -1,19 +1,21 @@
 """Security middleware: headers, payload ceilings, and abuse throttling.
 
-Scope note, because it drives every decision in this file: Wreckognise has no
-authentication. There are no users, no cookies, no sessions, no password store
-and no database -- the survey registry is an in-memory dict. Every endpoint is
-public by design; it is a demonstration dashboard, not a tenanted service.
+Two threat models sit side by side here.
 
-So the threat model is not credential stuffing. It is resource exhaustion: a
-single upload costs 8-40 s of CPU and several hundred MB of RSS on a 512 MB
-instance, which means a handful of concurrent requests is a denial of service
-without any cleverness at all. These middlewares defend the instance, and add
-the browser-side headers that cost nothing and close off whole bug classes.
+The first is resource exhaustion, and it applies whether or not anyone is
+signed in: one upload costs 8-40 s of CPU and several hundred MB of RSS on a
+512 MB instance, so a handful of concurrent requests is a denial of service
+with no cleverness at all.
 
-Ordering matters. Starlette runs middleware in reverse registration order, so
-the throttle must be added LAST to run FIRST -- there is no point parsing or
-size-checking a request that is about to be rejected anyway.
+The second arrived with authentication (app/services/auth.py). Sessions are
+cookie-borne, so the throttle now also stands in front of /api/auth/ -- an
+unthrottled login endpoint is an offline password cracker with a network
+interface.
+
+AuthGate is deliberately separate from both. It answers "may this caller be
+here", which is a different question from "is this request abusive", and
+keeping them apart means the throttle still protects the login route itself,
+which by definition cannot require a session.
 """
 
 from __future__ import annotations
@@ -38,7 +40,11 @@ UPLOAD_PATHS = ("/api/ingest/upload",)
 # Endpoints that cost real CPU: decode, denoise, inference, Eigen-CAM. These get
 # the strict bucket. Matched as prefixes, with a suffix check for the detect and
 # attention routes, which carry a survey id mid-path.
-EXPENSIVE_PREFIXES = ("/api/ingest/",)
+# /api/auth/ is here for a different reason from the rest: not CPU cost, but
+# because an unthrottled login endpoint is an offline password cracker with a
+# network interface. scrypt makes each guess expensive for the attacker AND for
+# this instance, so the throttle protects both.
+EXPENSIVE_PREFIXES = ("/api/ingest/", "/api/auth/")
 EXPENSIVE_SUFFIXES = ("/detect", "/attention")
 
 
@@ -205,3 +211,56 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         )
         for key in [k for k, v in self._hits.items() if not v or v[-1] <= horizon]:
             del self._hits[key]
+
+
+class AuthGateMiddleware(BaseHTTPMiddleware):
+    """Require a live session for the API, once `require_auth` is on.
+
+    A middleware rather than a dependency on each router, so a route added
+    later is protected by default instead of protected only if someone
+    remembers. Forgetting to opt in should not be the thing that exposes an
+    endpoint.
+
+    The exemption list is short and each entry earns its place: the login route
+    cannot require a session to obtain one; /status is what the dashboard asks
+    before it knows whether to render a login screen; health is the platform's
+    probe and must answer while signed out; OPTIONS is a preflight that carries
+    no cookie by design.
+    """
+
+    PUBLIC_PATHS = frozenset(
+        {
+            "/api/auth/login",
+            "/api/auth/logout",
+            "/api/auth/status",
+            "/api/health",
+            "/",
+        }
+    )
+
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+        if (
+            not settings.require_auth
+            or not settings.auth_enabled
+            or request.method == "OPTIONS"
+            or path in self.PUBLIC_PATHS
+            or not path.startswith("/api/")
+        ):
+            return await call_next(request)
+
+        # Imported here, not at module scope: auth imports config, config is
+        # imported by this module, and a top-level import would close the loop.
+        from .services import auth as auth_service
+
+        session = auth_service.sessions.get(
+            request.cookies.get(settings.session_cookie_name)
+        )
+        if session is None:
+            logger.warning(
+                "unauthenticated | ip=%s path=%s", client_ip(request), path
+            )
+            return JSONResponse(
+                status_code=401, content={"detail": "Authentication required."}
+            )
+        return await call_next(request)

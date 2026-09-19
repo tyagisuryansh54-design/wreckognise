@@ -1,7 +1,9 @@
 import { lazy, Suspense, useRef } from 'react'
+import { useAuth } from './hooks/useAuth'
 import { useInView } from './hooks/useMotion'
 import { useSurvey } from './hooks/useSurvey'
 import Hero from './components/Hero'
+import LoginPage from './components/LoginPage'
 import SiteNav from './components/SiteNav'
 import HazardAlert from './components/HazardAlert'
 import SonarBackdrop from './components/SonarBackdrop'
@@ -44,8 +46,19 @@ function Section({ id, label, title, children }) {
 }
 
 export default function App() {
+  const auth = useAuth()
   const survey = useSurvey()
   const uploadRef = useRef(null)
+
+  // Hooks run unconditionally -- returning before useSurvey() would change the
+  // hook order between renders, which React rejects outright. So the gate sits
+  // after the hooks and only swaps what is rendered.
+  if (auth.checking) {
+    return <div className="min-h-screen bg-cream" aria-busy="true" />
+  }
+  if (auth.gated) {
+    return <LoginPage onAuthenticated={auth.signIn} />
+  }
 
   const {
     health,

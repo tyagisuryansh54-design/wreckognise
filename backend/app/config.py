@@ -61,6 +61,25 @@ class Settings(BaseSettings):
     # strict CSP should have to accommodate.
     expose_docs_in_production: bool = False
 
+    # --- authentication ---
+    # Off unless an account is configured. A deployment that quietly starts with
+    # a default account is worse than one with no login at all, so the presence
+    # of credentials IS the switch.
+    auth_username: str = ""
+    auth_password: str = ""
+    # When true, the API refuses unauthenticated calls to the protected routes.
+    # Default false so enabling auth does not silently break a running
+    # deployment the moment the first account is seeded -- sign in, confirm it
+    # works, then turn this on.
+    require_auth: bool = False
+    session_cookie_name: str = "wreckognise_session"
+    session_ttl_seconds: int = 43_200          # 12 h
+    min_password_length: int = 12
+
+    @property
+    def auth_enabled(self) -> bool:
+        return bool(self.auth_username and self.auth_password)
+
     # Origins the browser may load subresources from. Leaflet basemap tiles come
     # from Esri, fonts from Google, waterfall PNGs from the API itself.
     csp_img_src: str = "https://server.arcgisonline.com"

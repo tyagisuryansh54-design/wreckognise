@@ -14,13 +14,14 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import settings
 from .middleware import (
+    AuthGateMiddleware,
     BodySizeLimitMiddleware,
     RateLimitMiddleware,
     SecurityHeadersMiddleware,
 )
 from .models.schemas import HealthResponse
-from .routers import catalogue as catalogue_router, ingest, inference, reports
-from .services import onnx_detector
+from .routers import auth as auth_router, catalogue as catalogue_router, ingest, inference, reports
+from .services import auth as auth_service, onnx_detector
 from .services.sonar_reader import PYXTF_AVAILABLE
 from .services.store import store
 
@@ -42,6 +43,14 @@ WGS-84 pixel-to-coordinate georeferencing -> operator review and export.
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     logger.info("%s v%s starting", settings.app_name, settings.app_version)
+    if auth_service.bootstrap(settings.auth_username, settings.auth_password):
+        logger.info(
+            "auth | enabled | require_auth=%s session_ttl=%ds",
+            settings.require_auth,
+            settings.session_ttl_seconds,
+        )
+    else:
+        logger.info("auth | disabled -- no WRECKOGNISE_AUTH_USERNAME/PASSWORD configured")
     logger.info(
         "engines | pyxtf=%s onnxruntime=%s trained_weights=%s | storage=%s",
         PYXTF_AVAILABLE,
@@ -80,6 +89,7 @@ app = FastAPI(
         {"name": "inference", "description": "YOLOv8 detection, georeferencing and review."},
         {"name": "reporting", "description": "Executive summaries and GIS export."},
         {"name": "catalogue", "description": "Reference data for seabed object classes."},
+        {"name": "auth", "description": "Sign-in, session lifecycle and password change."},
         {"name": "system", "description": "Health and capability probes."},
     ],
 )
@@ -99,17 +109,18 @@ app = FastAPI(
 # because it is the only one that touches the request body, and there is no
 # point buffering a body for a request already being thrown away.
 
+app.add_middleware(AuthGateMiddleware)
 app.add_middleware(BodySizeLimitMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
     allow_origin_regex=settings.cors_origin_regex,
-    # There are no cookies and no Authorization header anywhere in this API, so
-    # credentialed cross-origin requests are not a thing it needs to support.
-    # Leaving this on widened the policy for no benefit, and it is the flag that
-    # turns a loose origin regex from untidy into exploitable.
-    allow_credentials=False,
+    # Only once there is a session cookie to send. A credentialed policy is
+    # strictly wider, so it stays off on deployments with no account
+    # configured, and the origin list -- never a wildcard -- is what keeps it
+    # safe when it is on.
+    allow_credentials=settings.auth_enabled,
     allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
     allow_headers=["Content-Type", "Accept"],
     max_age=600,
@@ -120,6 +131,7 @@ app.add_middleware(SecurityHeadersMiddleware)
 # Rendered waterfalls and annotated frames are served straight off disk.
 app.mount("/static", StaticFiles(directory=str(settings.storage_dir)), name="static")
 
+app.include_router(auth_router.router)
 app.include_router(ingest.router)
 app.include_router(inference.router)
 app.include_router(reports.router)

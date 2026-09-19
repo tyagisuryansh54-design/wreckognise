@@ -169,6 +169,27 @@ class GeoSolution(BaseModel):
     formula: str = Field(description="Human-readable trace of the solve")
 
 
+class LoginRequest(BaseModel):
+    username: str = Field(..., min_length=1, max_length=254)
+    password: str = Field(..., min_length=1, max_length=1024)
+
+
+class PasswordChangeRequest(BaseModel):
+    current_password: str = Field(..., min_length=1, max_length=1024)
+    new_password: str = Field(..., min_length=1, max_length=1024)
+
+
+class UserResponse(BaseModel):
+    username: str
+    display_name: str
+    role: str
+
+
+class SessionResponse(BaseModel):
+    user: UserResponse
+    expires_in: int = Field(description="Session lifetime in seconds")
+
+
 class ClassScore(BaseModel):
     """One class and the share of the network's score vector it holds."""
 

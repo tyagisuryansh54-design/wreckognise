@@ -78,7 +78,14 @@ async function request(path, options = {}) {
 
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     try {
-      response = await fetchWithTimeout(`${BASE}${path}`, options)
+      response = await fetchWithTimeout(`${BASE}${path}`, {
+        ...options,
+        // The session cookie lives on the API origin, and the dashboard is
+        // served from another one. Without this the browser silently omits it
+        // and every authenticated call comes back 401 with nothing to show for
+        // it -- the request looks fine, the cookie just never left.
+        credentials: 'include',
+      })
       if (!COLD_START_STATUSES.has(response.status)) break
     } catch {
       response = null // network error, or the 90 s timeout fired
@@ -230,3 +237,22 @@ export const api = {
 }
 
 export { ApiError }
+
+// --- authentication ------------------------------------------------------ //
+
+/** Whether auth is switched on, and whether this browser already has a session. */
+export function authStatus() {
+  return request('/api/auth/status')
+}
+
+export function login(username, password) {
+  return request('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password }),
+  })
+}
+
+export function logout() {
+  return request('/api/auth/logout', { method: 'POST' })
+}
