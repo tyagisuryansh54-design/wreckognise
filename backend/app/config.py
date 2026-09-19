@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from pathlib import Path
 
@@ -19,11 +20,29 @@ class Settings(BaseSettings):
     # framework internals to production the moment someone forgets an env var,
     # and nothing in development is harmed by having to opt in.
     debug: bool = False
-    environment: str = "development"    # set WRECKOGNISE_ENVIRONMENT=production
+    # Empty means "work it out from the platform". An explicit value always
+    # wins, so WRECKOGNISE_ENVIRONMENT=development still forces the dev posture
+    # on a hosted instance when something needs debugging.
+    environment: str = ""
 
     @property
     def is_production(self) -> bool:
-        return self.environment.strip().lower() in {"production", "prod"}
+        """Hardened unless this is demonstrably a developer's machine.
+
+        The first cut of this defaulted to "development", which meant HSTS, the
+        CSP and the /docs lockdown were opt-in -- and the opt-in was an
+        environment variable in a dashboard. It shipped to production without
+        one, ran unhardened, and nothing said so: every response looked fine.
+        That is the same failure this file already fixed once for `debug`, so
+        it should not have been reintroduced two fields below it.
+
+        Render exports RENDER=true into every service, so the platform can
+        answer the question itself and the safe state needs no human step.
+        """
+        declared = self.environment.strip().lower()
+        if declared:
+            return declared in {"production", "prod", "staging"}
+        return os.environ.get("RENDER", "").lower() in {"true", "1"}
 
     # --- security ---
     # Non-upload routes carry a survey id and a few flags. A megabyte is three
