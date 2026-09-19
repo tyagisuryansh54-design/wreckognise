@@ -72,6 +72,13 @@ class Settings(BaseSettings):
     # deployment the moment the first account is seeded -- sign in, confirm it
     # works, then turn this on.
     require_auth: bool = False
+    # HMAC key for artefact URLs. Generated per-process when unset, which means
+    # existing links stop verifying after a restart -- acceptable, since the
+    # files they point at live on an ephemeral disk and do not survive one
+    # either. Set it once the storage does persist.
+    secret_key: str = ""
+    artefact_url_ttl_seconds: int = 3600
+
     session_cookie_name: str = "wreckognise_session"
     session_ttl_seconds: int = 43_200          # 12 h
     min_password_length: int = 12

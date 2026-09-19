@@ -7,10 +7,11 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from .config import settings
 from .middleware import (
@@ -21,7 +22,7 @@ from .middleware import (
 )
 from .models.schemas import HealthResponse
 from .routers import auth as auth_router, catalogue as catalogue_router, ingest, inference, reports
-from .services import auth as auth_service, onnx_detector
+from .services import auth as auth_service, onnx_detector, signing
 from .services.sonar_reader import PYXTF_AVAILABLE
 from .services.store import store
 
@@ -128,8 +129,37 @@ app.add_middleware(
 app.add_middleware(SecurityHeadersMiddleware)
 
 
-# Rendered waterfalls and annotated frames are served straight off disk.
-app.mount("/static", StaticFiles(directory=str(settings.storage_dir)), name="static")
+# Rendered waterfalls and annotated frames, served off disk behind a signature.
+#
+# This replaces a StaticFiles mount over the whole storage directory, which also
+# exposed storage/uploads and storage/reports -- meaning the raw sonar file a
+# customer uploaded was retrievable by anyone who guessed its URL, and survey
+# ids are the only thing there is to guess.
+#
+# Only `processed` is reachable now, and only with a valid signature. The
+# signature exists rather than a session check because the session cookie is
+# SameSite=strict: a browser does not attach it to a cross-origin <img>, so
+# cookie-gating these files would blank every waterfall on the dashboard while
+# looking like a correct rejection from the server's side.
+@app.get("/static/processed/{filename}", include_in_schema=False)
+async def processed_artefact(filename: str, exp: str | None = None, sig: str | None = None):
+    safe_name = Path(filename).name
+    if not signing.verify(safe_name, exp, sig):
+        # Same answer for a bad signature, an expired one and a file that was
+        # never there. Distinguishing them tells a prober which survey ids exist.
+        raise HTTPException(status_code=404, detail="Not found")
+
+    path = (settings.processed_dir / safe_name).resolve()
+    if not path.is_file() or settings.processed_dir.resolve() not in path.parents:
+        raise HTTPException(status_code=404, detail="Not found")
+
+    return FileResponse(
+        path,
+        media_type="image/png",
+        # Private: these are one customer's survey imagery, and a shared cache
+        # keyed on URL alone would hand them to the next person with the link.
+        headers={"Cache-Control": "private, max-age=300"},
+    )
 
 app.include_router(auth_router.router)
 app.include_router(ingest.router)

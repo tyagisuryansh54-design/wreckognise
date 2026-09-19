@@ -6,7 +6,7 @@ import logging
 from datetime import datetime, timezone
 
 import cv2
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse
 
 from ..config import settings
@@ -22,7 +22,9 @@ from ..services import attention
 from ..services.detector import run_inference, summarise
 from ..services.georeference import solve_pixel
 from ..services.preprocessing import render_annotated
+from ..services import signing
 from ..services.store import store
+from .auth import owner_key
 
 logger = logging.getLogger("wreckognise")
 
@@ -34,9 +36,10 @@ async def detect(
     survey_id: str,
     confidence: float = Query(default=None, ge=0.0, le=1.0),
     iou: float = Query(default=None, ge=0.0, le=1.0),
+    owner: str | None = Depends(owner_key),
 ) -> InferenceResponse:
     """Run the detection engine over a preprocessed survey and georeference hits."""
-    survey = store.get(survey_id)
+    survey = store.get(survey_id, owner)
     if survey is None:
         raise HTTPException(status_code=404, detail=f"Unknown survey '{survey_id}'")
     if survey.filtered is None:
@@ -57,7 +60,7 @@ async def detect(
         status=SurveyStatus.COMPLETE,
         metrics=metrics,
         detections=detections,
-        annotated_png=f"/static/processed/{annotated.name}",
+        annotated_png=f"/static/processed/{signing.sign(annotated.name)}",
         summary=summarise(survey, detections),
     )
 
@@ -187,8 +190,8 @@ async def georeference_bbox(survey_id: str, bbox: BoundingBox) -> GeoSolution:
     return solve_pixel(survey, bbox.cx, bbox.cy)
 
 
-def _require(survey_id: str):
-    survey = store.get(survey_id)
+def _require(survey_id: str, owner: str | None = None):
+    survey = store.get(survey_id, owner)
     if survey is None:
         raise HTTPException(status_code=404, detail=f"Unknown survey '{survey_id}'")
     return survey

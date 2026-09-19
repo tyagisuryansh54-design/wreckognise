@@ -60,6 +60,20 @@ def current_user(request: Request) -> auth.User:
     return user
 
 
+def owner_key(request: Request) -> str | None:
+    """Partition key for stored data.
+
+    None when authentication is switched off, which puts every survey in the
+    shared anonymous partition -- exactly how the service behaved before
+    accounts existed. With auth on, it is the signed-in username, and the store
+    refuses anything belonging to anyone else.
+    """
+    if not settings.auth_enabled:
+        return None
+    session = auth.sessions.get(request.cookies.get(settings.session_cookie_name))
+    return session.username if session else None
+
+
 def optional_user(request: Request) -> auth.User | None:
     session = auth.sessions.get(request.cookies.get(settings.session_cookie_name))
     return auth.users.get(session.username) if session else None

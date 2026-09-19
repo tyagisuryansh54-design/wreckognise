@@ -49,9 +49,14 @@ def main() -> int:
     check("preprocessed status", ingest["status"] == "preprocessed")
     check("SNR gain reported", ingest["preprocess"]["snr_gain_db"] > 0,
           f"{ingest['preprocess']['snr_gain_db']:+.2f} dB")
+    # Artefact URLs carry an expiry and signature now, so the path ends in
+    # .png but the URL does not.
     check("both waterfalls rendered",
-          ingest["raw_waterfall_png"].endswith(".png")
-          and ingest["filtered_waterfall_png"].endswith(".png"))
+          ingest["raw_waterfall_png"].split("?")[0].endswith(".png")
+          and ingest["filtered_waterfall_png"].split("?")[0].endswith(".png"))
+    check("waterfall URLs are signed",
+          "sig=" in ingest["raw_waterfall_png"]
+          and "exp=" in ingest["raw_waterfall_png"])
     check("telemetry preview thinned",
           0 < len(ingest["telemetry_preview"]) <= 61,
           f"{len(ingest['telemetry_preview'])} fixes")

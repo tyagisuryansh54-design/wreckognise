@@ -2,21 +2,24 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 
 from ..config import settings
 from ..models.schemas import ReportRequest, ReportResponse, ReviewStatus
 from ..services.reporting import generate_report, to_geojson
 from ..services.store import store
+from .auth import owner_key
 
 router = APIRouter(prefix="/api/reports", tags=["reporting"])
 
 
 @router.post("/generate", response_model=ReportResponse)
-async def generate(request: ReportRequest) -> ReportResponse:
+async def generate(
+    request: ReportRequest, owner: str | None = Depends(owner_key)
+) -> ReportResponse:
     """Produce an executive summary in Markdown, JSON or GeoJSON."""
-    survey = store.get(request.survey_id)
+    survey = store.get(request.survey_id, owner)
     if survey is None:
         raise HTTPException(status_code=404, detail=f"Unknown survey '{request.survey_id}'")
     if not survey.detections and survey.inference_metrics is None:
@@ -24,13 +27,19 @@ async def generate(request: ReportRequest) -> ReportResponse:
             status_code=409,
             detail="Run detection before generating a report.",
         )
-    return generate_report(survey, request)
+    report = generate_report(survey, request)
+    store.record_report(report.download_url.rsplit("/", 1)[-1], owner)
+    return report
 
 
 @router.get("/{survey_id}/geojson")
-async def export_geojson(survey_id: str, include_dismissed: bool = False) -> JSONResponse:
+async def export_geojson(
+    survey_id: str,
+    include_dismissed: bool = False,
+    owner: str | None = Depends(owner_key),
+) -> JSONResponse:
     """GeoJSON feature collection ready for QGIS / ArcGIS / ENC plotters."""
-    survey = store.get(survey_id)
+    survey = store.get(survey_id, owner)
     if survey is None:
         raise HTTPException(status_code=404, detail=f"Unknown survey '{survey_id}'")
 
@@ -47,12 +56,20 @@ async def export_geojson(survey_id: str, include_dismissed: bool = False) -> JSO
 
 
 @router.get("/download/{filename}")
-async def download(filename: str) -> FileResponse:
-    """Serve a previously generated report file."""
+async def download(
+    filename: str, owner: str | None = Depends(owner_key)
+) -> FileResponse:
+    """Serve a previously generated report file, to its owner only."""
     # Reject any path traversal before touching the filesystem.
     safe_name = filename.replace("\\", "/").split("/")[-1]
     path = (settings.report_dir / safe_name).resolve()
     if not path.is_file() or settings.report_dir.resolve() not in path.parents:
+        raise HTTPException(status_code=404, detail=f"No report named '{filename}'")
+
+    # Ownership was recorded when the report was generated. A caller who does
+    # not own it gets the same 404 as one asking for a file that never existed
+    # -- "forbidden" would confirm it does.
+    if not store.may_access_report(safe_name, owner):
         raise HTTPException(status_code=404, detail=f"No report named '{filename}'")
 
     media_types = {

@@ -6,7 +6,7 @@ import logging
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
 from ..config import settings
 from ..models.schemas import (
@@ -22,7 +22,9 @@ from ..services.sonar_reader import (
     read_image_sample,
     read_sonar_file,
 )
+from ..services import signing
 from ..services.store import store
+from .auth import owner_key
 
 logger = logging.getLogger("wreckognise.security")
 
@@ -35,6 +37,7 @@ async def upload_sonar(
     denoise_method: str = Form(default="nlm"),
     apply_tvg: bool = Form(default=True),
     apply_clahe: bool = Form(default=True),
+    owner: str | None = Depends(owner_key),
 ) -> IngestResponse:
     """Ingest a raw sonar file, decode it, and run the OpenCV preprocessing chain."""
     filename = Path(file.filename or "unnamed.xtf").name
@@ -85,13 +88,16 @@ async def upload_sonar(
             detail=f"File exceeds the {settings.max_upload_mb} MB limit.",
         )
 
-    return _process(survey_id, stored_path, filename, denoise_method, apply_tvg, apply_clahe)
+    return _process(
+        survey_id, stored_path, filename, denoise_method, apply_tvg, apply_clahe, owner
+    )
 
 
 @router.post("/demo", response_model=IngestResponse)
 async def load_demo(
     denoise_method: str = Form(default="nlm"),
     line_name: str = Form(default="GoM-Line-07.xtf"),
+    owner: str | None = Depends(owner_key),
 ) -> IngestResponse:
     """Load a modelled demo survey line without needing a file on disk.
 
@@ -99,7 +105,9 @@ async def load_demo(
     """
     survey_id = f"SVY-{uuid.uuid4().hex[:10].upper()}"
     virtual_path = settings.upload_dir / Path(line_name).name
-    return _process(survey_id, virtual_path, Path(line_name).name, denoise_method, True, True)
+    return _process(
+        survey_id, virtual_path, Path(line_name).name, denoise_method, True, True, owner
+    )
 
 
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".tif", ".tiff"}
@@ -112,6 +120,7 @@ def _process(
     denoise_method: str,
     apply_tvg: bool,
     apply_clahe: bool,
+    owner: str | None = None,
 ) -> IngestResponse:
     """Decode, denoise and render one survey line."""
     # Route by kind, not by hope. An image handed to read_sonar_file would fail
@@ -126,7 +135,7 @@ def _process(
         raise HTTPException(status_code=422, detail=f"Could not decode {kind}: {exc}") from exc
 
     survey.metadata.filename = display_name
-    return _finalise(survey, denoise_method, apply_tvg, apply_clahe)
+    return _finalise(survey, denoise_method, apply_tvg, apply_clahe, owner)
 
 
 def _finalise(
@@ -134,6 +143,7 @@ def _finalise(
     denoise_method: str,
     apply_tvg: bool,
     apply_clahe: bool,
+    owner: str | None = None,
 ) -> IngestResponse:
     """Denoise, render and register a decoded survey.
 
@@ -157,15 +167,15 @@ def _finalise(
     render_waterfall(survey.waterfall, raw_png, colormap="bone")
     render_waterfall(filtered, filtered_png, colormap="bone")
 
-    store.put(survey)
+    store.put(survey, owner)
 
     return IngestResponse(
         survey_id=survey_id,
         status=SurveyStatus.PREPROCESSED,
         metadata=survey.metadata,
         preprocess=stats,
-        raw_waterfall_png=f"/static/processed/{raw_png.name}",
-        filtered_waterfall_png=f"/static/processed/{filtered_png.name}",
+        raw_waterfall_png=f"/static/processed/{signing.sign(raw_png.name)}",
+        filtered_waterfall_png=f"/static/processed/{signing.sign(filtered_png.name)}",
         telemetry_preview=_thin(survey.telemetry, 60),
         message=(
             f"Decoded {survey.metadata.ping_count:,} pings via {survey.metadata.parser}; "
@@ -184,6 +194,7 @@ async def get_samples() -> dict:
 async def load_sample(
     filename: str = Form(...),
     denoise_method: str = Form(default="nlm"),
+    owner: str | None = Depends(owner_key),
 ) -> IngestResponse:
     """Ingest a bundled REAL sonar image from the detector's held-out split.
 
@@ -199,30 +210,37 @@ async def load_sample(
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
-    return _finalise(survey, denoise_method, apply_tvg=False, apply_clahe=True)
+    return _finalise(survey, denoise_method, apply_tvg=False, apply_clahe=True, owner=owner)
 
 
 @router.get("/{survey_id}/metadata", response_model=SonarMetadata)
-async def get_metadata(survey_id: str) -> SonarMetadata:
-    survey = store.get(survey_id)
+async def get_metadata(
+    survey_id: str, owner: str | None = Depends(owner_key)
+) -> SonarMetadata:
+    survey = store.get(survey_id, owner)
     if survey is None:
         raise HTTPException(status_code=404, detail=f"Unknown survey '{survey_id}'")
     return survey.metadata
 
 
 @router.get("/{survey_id}/telemetry", response_model=list[PingTelemetry])
-async def get_telemetry(survey_id: str, limit: int = 500) -> list[PingTelemetry]:
+async def get_telemetry(
+    survey_id: str, limit: int = 500, owner: str | None = Depends(owner_key)
+) -> list[PingTelemetry]:
     """Thinned navigation track, used to draw the survey line on the GIS map."""
-    survey = store.get(survey_id)
+    survey = store.get(survey_id, owner)
     if survey is None:
         raise HTTPException(status_code=404, detail=f"Unknown survey '{survey_id}'")
     return _thin(survey.telemetry, limit)
 
 
 @router.get("/surveys")
-async def list_surveys() -> dict:
+async def list_surveys(owner: str | None = Depends(owner_key)) -> dict:
+    visible = store.all(owner)
     return {
-        "count": len(store),
+        # Counts what this caller can see, not what the process holds. A total
+        # that exceeds the list is a disclosure of other tenants' activity.
+        "count": len(visible),
         "surveys": [
             {
                 "survey_id": s.survey_id,
@@ -232,14 +250,16 @@ async def list_surveys() -> dict:
                 "detections": len(s.detections),
                 "start_time": s.metadata.start_time,
             }
-            for s in store.all()
+            for s in visible
         ],
     }
 
 
 @router.delete("/{survey_id}")
-async def delete_survey(survey_id: str) -> dict:
-    if not store.delete(survey_id):
+async def delete_survey(
+    survey_id: str, owner: str | None = Depends(owner_key)
+) -> dict:
+    if not store.delete(survey_id, owner):
         raise HTTPException(status_code=404, detail=f"Unknown survey '{survey_id}'")
     return {"deleted": survey_id}
 
