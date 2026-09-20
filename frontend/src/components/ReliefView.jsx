@@ -34,7 +34,7 @@ import { api, assetUrl } from '../utils/api'
  * floats each. The stride is derived per swath so every source lands near the
  * same budget -- the demo keeps its detail and real data stays interactive.
  */
-const POINT_BUDGET = 250_000
+const POINT_BUDGET = 320_000
 const Z_SCALE = 14        // metres of relief at full backscatter, for legibility
 
 /** Terminal-green ramp, dark seabed through to a lit return. */
@@ -65,6 +65,7 @@ export default function ReliefView({ ingest, detections = [], onRecover }) {
     const mount = mountRef.current
     let disposed = false
     let frame = 0
+    let sprite = null
     setStatus('loading')
 
     const scene = new THREE.Scene()
@@ -80,7 +81,11 @@ export default function ReliefView({ ingest, detections = [], onRecover }) {
 
     const controls = new OrbitControls(camera, renderer.domElement)
     controls.enableDamping = true
-    controls.dampingFactor = 0.08
+    controls.dampingFactor = 0.06
+    controls.rotateSpeed = 0.6
+    controls.zoomSpeed = 0.8
+    // Never below the seabed: a view from underneath reads as a glitch.
+    controls.maxPolarAngle = Math.PI * 0.49
 
     const image = new Image()
     // The waterfall is served from the API origin, which is a different host in
@@ -150,12 +155,41 @@ export default function ReliefView({ ingest, detections = [], onRecover }) {
       const geometry = new THREE.BufferGeometry()
       geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
       geometry.setAttribute('color', new THREE.Float32BufferAttribute(colours, 3))
+      /*
+       * Round sprites, not squares. A bare PointsMaterial draws each point as
+       * an axis-aligned square, and a few hundred thousand of them read as a
+       * screen-door. A radial-gradient sprite with an alpha test gives a soft
+       * disc per return with no transparency sorting to get wrong -- discarded
+       * fragments simply do not write depth.
+       */
+      const spriteCanvas = document.createElement('canvas')
+      spriteCanvas.width = spriteCanvas.height = 64
+      const g = spriteCanvas.getContext('2d')
+      const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32)
+      grad.addColorStop(0, 'rgba(255,255,255,1)')
+      grad.addColorStop(0.5, 'rgba(255,255,255,0.9)')
+      grad.addColorStop(1, 'rgba(255,255,255,0)')
+      g.fillStyle = grad
+      g.fillRect(0, 0, 64, 64)
+      sprite = new THREE.CanvasTexture(spriteCanvas)
+
       const cloud = new THREE.Points(
         geometry,
-        new THREE.PointsMaterial({ size: 0.55, vertexColors: true, sizeAttenuation: true }),
+        new THREE.PointsMaterial({
+          size: 0.5,
+          vertexColors: true,
+          sizeAttenuation: true,
+          map: sprite,
+          alphaTest: 0.35,
+        }),
       )
       scene.add(cloud)
       setPoints(positions.length / 3)
+
+      // Depth cue: returns at the far edge of the swath fade toward the ground
+      // colour, which is what gives a flat cloud of dots its sense of a surface.
+      const extent = Math.max(swath, along)
+      scene.fog = new THREE.Fog(0x0a0a0a, extent * 0.9, extent * 2.6)
 
       // Contacts, at their solved across/along position. Height here IS derived
       // -- from shadow geometry -- so the marker sits at its estimated height.
@@ -171,12 +205,16 @@ export default function ReliefView({ ingest, detections = [], onRecover }) {
       })
 
       // Ground plane grid, so the relief has something to sit on.
-      const grid = new THREE.GridHelper(Math.max(swath, along), 24, 0x1f3a2a, 0x14251c)
+      const grid = new THREE.GridHelper(extent, 40, 0x1b2f22, 0x111a14)
       grid.position.y = -0.5
       scene.add(grid)
 
-      camera.position.set(swath * 0.75, swath * 0.5, along * 0.8)
+      // Closer and lower than before, so the surface fills the frame instead
+      // of sitting as a small tile in the middle of it.
+      camera.position.set(swath * 0.62, swath * 0.4, along * 0.66)
       controls.target.set(0, 0, 0)
+      controls.minDistance = extent * 0.12
+      controls.maxDistance = extent * 3
       controls.update()
       setStatus('ready')
 
@@ -273,6 +311,7 @@ export default function ReliefView({ ingest, detections = [], onRecover }) {
         o.geometry?.dispose?.()
         o.material?.dispose?.()
       })
+      sprite?.dispose()
       if (renderer.domElement.parentNode === mount) mount.removeChild(renderer.domElement)
     }
   }, [src, meta, detectionKey, attempt]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -286,7 +325,7 @@ export default function ReliefView({ ingest, detections = [], onRecover }) {
       />
 
       {!ingest ? (
-        <div className="mt-4 h-80 rounded border border-ink/10 bg-cream/50">
+        <div className="mt-4 h-[26rem] rounded border border-ink/10 bg-cream/50 sm:h-[32rem]">
           <EmptyState
             icon={<IconLayers className="h-5 w-5" />}
             title="No swath loaded"
@@ -297,7 +336,7 @@ export default function ReliefView({ ingest, detections = [], onRecover }) {
         <>
           <div
             ref={mountRef}
-            className="mt-4 h-80 w-full cursor-grab overflow-hidden rounded border border-ink/10 active:cursor-grabbing sm:h-96"
+            className="mt-4 h-[26rem] w-full cursor-grab overflow-hidden rounded border border-ink/10 active:cursor-grabbing sm:h-[32rem]"
           />
           {status === 'tainted' && (
             <p className="mt-2 font-mono text-2xs text-coral">

@@ -21,6 +21,15 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, onSample,
   const [method, setMethod] = useState('nlm')
   const [sampleIndex, setSampleIndex] = useState(0)
   const [split, setSplit] = useState(52)
+  // While a drag is in progress the split lives in a ref and is written to the
+  // DOM directly; React is told once, on release. Every pointermove used to go
+  // through setState, which re-rendered this whole card -- two full-size
+  // images and a stats grid -- sixty times a second. That is where the
+  // roughness came from.
+  const [sliding, setSliding] = useState(false)
+  const liveSplit = useRef(52)
+  const overlayRef = useRef(null)
+  const handleRef = useRef(null)
   const [dragging, setDragging] = useState(false)
   const frameRef = useRef(null)
 
@@ -68,23 +77,52 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, onSample,
     [handleFiles],
   )
 
-  /** Drag the split handle with pointer capture so it tracks outside the frame. */
+  /**
+   * Drag the split handle.
+   *
+   * Pointer capture on the handle itself, so the drag keeps tracking outside
+   * the frame and outside the window. The frame is measured ONCE at press --
+   * a getBoundingClientRect per move forces a layout per frame. Each move
+   * writes two style properties straight to the DOM and nothing else; React
+   * hears about the final value on release.
+   */
   const startDrag = useCallback((event) => {
     const frame = frameRef.current
-    if (!frame) return
+    const handle = event.currentTarget
+    if (!frame || !handle) return
     event.preventDefault()
 
-    const move = (e) => {
-      const rect = frame.getBoundingClientRect()
-      const clientX = e.touches?.[0]?.clientX ?? e.clientX
-      setSplit(Math.max(2, Math.min(98, ((clientX - rect.left) / rect.width) * 100)))
+    const rect = frame.getBoundingClientRect()
+    const paint = (clientX) => {
+      const pct = Math.max(2, Math.min(98, ((clientX - rect.left) / rect.width) * 100))
+      liveSplit.current = pct
+      if (overlayRef.current) overlayRef.current.style.clipPath = `inset(0 ${100 - pct}% 0 0)`
+      if (handleRef.current) handleRef.current.style.left = `${pct}%`
     }
-    const stop = () => {
-      window.removeEventListener('pointermove', move)
-      window.removeEventListener('pointerup', stop)
+    const move = (e) => paint(e.clientX)
+    const stop = (e) => {
+      handle.removeEventListener('pointermove', move)
+      handle.removeEventListener('pointerup', stop)
+      handle.removeEventListener('pointercancel', stop)
+      try {
+        handle.releasePointerCapture(e.pointerId)
+      } catch {
+        /* capture may already be gone; nothing to release */
+      }
+      setSplit(liveSplit.current)
+      setSliding(false)
     }
-    window.addEventListener('pointermove', move)
-    window.addEventListener('pointerup', stop)
+
+    try {
+      handle.setPointerCapture(event.pointerId)
+    } catch {
+      /* not a pointer-capable target; the listeners below still work */
+    }
+    handle.addEventListener('pointermove', move)
+    handle.addEventListener('pointerup', stop)
+    handle.addEventListener('pointercancel', stop)
+    setSliding(true)
+    paint(event.clientX)
   }, [])
 
   const stats = ingest?.preprocess
@@ -277,8 +315,14 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, onSample,
               />
               {/* Raw (left of the handle) is clipped over the top. */}
               <div
+                ref={overlayRef}
                 className="absolute inset-0 overflow-hidden"
-                style={{ clipPath: `inset(0 ${100 - split}% 0 0)` }}
+                /* Mid-drag re-renders read the live ref, not state, so a
+                   render triggered elsewhere cannot snap the split back. */
+                style={{
+                  clipPath: `inset(0 ${100 - (sliding ? liveSplit.current : split)}% 0 0)`,
+                  willChange: sliding ? 'clip-path' : undefined,
+                }}
               >
                 <img
                   src={assetUrl(ingest.raw_waterfall_png)}
@@ -300,8 +344,11 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, onSample,
 
               {/* Split handle */}
               <div
-                className="absolute inset-y-0 z-10 w-0.5 cursor-ew-resize bg-aqua"
-                style={{ left: `${split}%` }}
+                ref={handleRef}
+                /* touch-none: without it a finger drag scrolls the page instead
+                   of moving the split. */
+                className="absolute inset-y-0 z-10 w-0.5 cursor-ew-resize touch-none bg-aqua"
+                style={{ left: `${sliding ? liveSplit.current : split}%` }}
                 onPointerDown={startDrag}
                 role="slider"
                 tabIndex={0}
@@ -314,6 +361,8 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, onSample,
                   if (e.key === 'ArrowRight') setSplit((s) => Math.min(98, s + 4))
                 }}
               >
+                {/* The visible line is 2px; this is the thing you actually grab. */}
+                <span aria-hidden className="absolute inset-y-0 -left-3 w-6" />
                 <span className="absolute left-1/2 top-1/2 grid h-8 w-8 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-aqua text-ink shadow-lg">
                   <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
                     <path d="m10 8-4 4 4 4M14 8l4 4-4 4" />
