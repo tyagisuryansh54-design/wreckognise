@@ -53,9 +53,10 @@ export default function App() {
   // Hooks run unconditionally -- returning before useSurvey() would change the
   // hook order between renders, which React rejects outright. So the gate sits
   // after the hooks and only swaps what is rendered.
-  if (auth.checking) {
-    return <div className="min-h-screen bg-cream" aria-busy="true" />
-  }
+  //
+  // There is no loading branch here on purpose. Holding a blank screen until
+  // the auth probe answers meant a sleeping backend rendered the site black
+  // for minutes.
   if (auth.gated) {
     return <LoginPage onAuthenticated={auth.signIn} />
   }

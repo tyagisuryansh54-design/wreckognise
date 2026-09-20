@@ -9,13 +9,17 @@ import { authStatus, logout as apiLogout } from '../utils/api'
  * build cannot know which kind it is talking to -- so `/api/auth/status` is the
  * first call, and `gated` comes from the answer.
  *
- * `checking` starts true so nothing renders during the round trip. Defaulting
- * it false flashes the whole dashboard for a moment before the login screen
- * replaces it, which looks like a leak even though the API would refuse every
- * request that flash tried to make.
+ * The probe NEVER blocks rendering. An earlier version held a blank screen
+ * until it answered, on the reasoning that flashing the dashboard before a
+ * login screen looks like a leak. It is not one -- the API refuses every
+ * request such a flash could make -- and the cost was severe: against a
+ * sleeping backend the site was a black rectangle for minutes, which is how it
+ * reached production and how it was reported.
+ *
+ * So the dashboard renders immediately and the login screen replaces it only
+ * once the server has positively said authentication is required.
  */
 export function useAuth() {
-  const [checking, setChecking] = useState(true)
   const [required, setRequired] = useState(false)
   const [user, setUser] = useState(null)
 
@@ -27,14 +31,10 @@ export function useAuth() {
         status.authenticated ? { username: status.username, display_name: status.username } : null,
       )
     } catch {
-      // The status probe is public and cheap. If it fails the backend is
-      // unreachable, which the dashboard already reports on its own -- so fail
-      // open here rather than showing a login screen for a server that cannot
-      // authenticate anyone anyway.
+      // authStatus() already resolves rather than throwing, so this is
+      // belt-and-braces: a probe that cannot answer must never gate the app.
       setRequired(false)
       setUser(null)
-    } finally {
-      setChecking(false)
     }
   }, [])
 
@@ -53,7 +53,6 @@ export function useAuth() {
   }, [])
 
   return {
-    checking,
     user,
     signOut,
     signIn: setUser,

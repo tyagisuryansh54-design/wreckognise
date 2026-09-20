@@ -240,9 +240,33 @@ export { ApiError }
 
 // --- authentication ------------------------------------------------------ //
 
-/** Whether auth is switched on, and whether this browser already has a session. */
-export function authStatus() {
-  return request('/api/auth/status')
+/**
+ * Whether auth is switched on, and whether this browser already has a session.
+ *
+ * Deliberately NOT routed through `request()`. That wrapper retries cold
+ * starts for up to ninety seconds a time, which is right for a survey upload
+ * and catastrophic here -- this call gates first paint, and a sleeping backend
+ * turned the whole dashboard into a blank screen for minutes while it waited.
+ *
+ * Short timeout, no retries, and any failure is reported as "not gated": a
+ * backend that cannot answer cannot authenticate anyone either, so there is
+ * nothing to put a login screen in front of.
+ */
+export async function authStatus() {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 4000)
+  try {
+    const response = await fetch(`${BASE}/api/auth/status`, {
+      credentials: 'include',
+      signal: controller.signal,
+    })
+    if (!response.ok) return { auth_enabled: false, auth_required: false }
+    return await response.json()
+  } catch {
+    return { auth_enabled: false, auth_required: false }
+  } finally {
+    clearTimeout(timer)
+  }
 }
 
 export function login(username, password) {
