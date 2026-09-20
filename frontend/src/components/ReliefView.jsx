@@ -229,7 +229,21 @@ export default function ReliefView({ ingest, detections = [], onRecover }) {
         )
       })
     }
-    image.src = assetUrl(src)
+    /*
+     * A distinct URL from the one the <img> tags use, on purpose.
+     *
+     * The ingest panel loads this exact file in a plain <img> -- no Origin,
+     * so the reply carries no Access-Control-Allow-Origin -- and the browser
+     * caches that reply. This request is CORS-mode (crossOrigin above), and
+     * given the same URL Chrome serves it from that cache, finds no ACAO on
+     * the cached copy, and fails it as a CORS error. The server sends Vary:
+     * Origin to prevent exactly that, but a CDN or proxy between here and it
+     * may not honour Vary, and the cost of a second fetch is nothing next to
+     * a blank panel. The signature covers filename and expiry only, so the
+     * extra parameter does not invalidate it.
+     */
+    const separator = src.includes('?') ? '&' : '?'
+    image.src = assetUrl(`${src}${separator}mode=cors`)
 
     const onResize = () => {
       if (!mount.clientWidth) return

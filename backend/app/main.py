@@ -177,6 +177,8 @@ async def processed_artefact(filename: str, exp: str | None = None, sig: str | N
         media_type="image/png",
         # Private: these are one customer's survey imagery, and a shared cache
         # keyed on URL alone would hand them to the next person with the link.
+        # Vary: Origin is added by SecurityHeadersMiddleware for this path --
+        # see the note there for why it has to be unconditional.
         headers={"Cache-Control": "private, max-age=300"},
     )
 

@@ -86,6 +86,21 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # frontend), so cross-origin *reads* of /static must stay possible.
         response.headers["X-Permitted-Cross-Domain-Policies"] = "none"
 
+        if request.url.path.startswith("/static/processed/"):
+            # Vary: Origin on EVERY artefact response, not only the ones that
+            # carried an Origin (which is all CORSMiddleware does). The dashboard
+            # shows a waterfall in a plain <img> first -- no Origin, so no ACAO
+            # in the reply -- and the browser caches that reply. The relief view
+            # then requests the same URL in CORS mode to read its pixels, the
+            # cache answers with the ACAO-less copy, and the browser fails the
+            # load as a CORS error on a file the server would gladly have
+            # served. Keying the cache on Origin sends that request to the
+            # server instead. Done here, outermost, so it can dedupe against
+            # the copy CORSMiddleware may already have appended.
+            vary = response.headers.get("vary", "")
+            if "origin" not in vary.lower():
+                response.headers["Vary"] = f"{vary}, Origin" if vary else "Origin"
+
         if settings.is_production:
             # Only meaningful over TLS, and only honest to send when the
             # deployment actually terminates TLS. Browsers ignore it on http://
