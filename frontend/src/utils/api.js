@@ -182,6 +182,20 @@ export const api = {
     return request('/api/ingest/sample', { method: 'POST', body: form })
   },
 
+  /**
+   * Does the backend still hold this survey?
+   *
+   * The instance sleeps when idle and comes back with an empty in-memory
+   * store and a wiped disk, so a page can be holding a survey the server has
+   * no record of. Knowing which failure happened is the difference between
+   * "reload and ingest again" and "something is broken".
+   */
+  surveyExists: (surveyId) =>
+    request(`/api/ingest/${surveyId}/metadata`).then(
+      () => true,
+      () => false,
+    ),
+
   telemetry: (surveyId, limit = 400) =>
     request(`/api/ingest/${surveyId}/telemetry?limit=${limit}`),
 

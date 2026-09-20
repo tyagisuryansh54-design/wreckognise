@@ -37,6 +37,12 @@ services:
       # people is going to try the dashboard at once, raise this first.
       - key: WRECKOGNISE_RATE_LIMIT_HEAVY
         sync: false
+      # HMAC key for artefact URLs. Without it the key is generated per
+      # process, so every waterfall link minted before a restart stops
+      # verifying -- and a free instance restarts every time it sleeps.
+      # generateValue makes Render mint one once and keep it.
+      - key: WRECKOGNISE_SECRET_KEY
+        generateValue: true
       # Set this to your deployed dashboard origin after the frontend is live.
       - key: WRECKOGNISE_CORS_ORIGINS
         sync: false

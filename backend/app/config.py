@@ -77,7 +77,10 @@ class Settings(BaseSettings):
     # files they point at live on an ephemeral disk and do not survive one
     # either. Set it once the storage does persist.
     secret_key: str = ""
-    artefact_url_ttl_seconds: int = 3600
+    # Matched to the session lifetime rather than an arbitrary hour: an
+    # operator who ingests a line and works through it for a morning should
+    # not find the waterfall gone from under them halfway down the page.
+    artefact_url_ttl_seconds: int = 43_200
 
     session_cookie_name: str = "wreckognise_session"
     session_ttl_seconds: int = 43_200          # 12 h

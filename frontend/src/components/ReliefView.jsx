@@ -25,7 +25,7 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import { BentoCard, CardHeader, EmptyState } from './Primitives'
 import { IconLayers } from './Icons'
-import { assetUrl } from '../utils/api'
+import { api, assetUrl } from '../utils/api'
 
 const STRIDE = 3          // sample every Nth pixel; 1 would be ~1M points
 const Z_SCALE = 14        // metres of relief at full backscatter, for legibility
@@ -157,7 +157,20 @@ export default function ReliefView({ ingest, detections = [] }) {
       tick()
     }
 
-    image.onerror = () => setStatus('error')
+    /*
+     * Work out WHICH failure this is before reporting it. A processed frame
+     * lives on an ephemeral disk behind a signed URL, so it goes away when the
+     * instance sleeps -- and then the page is holding a survey the server no
+     * longer has. That is a different message, and a different action, from a
+     * genuinely broken image.
+     */
+    image.onerror = () => {
+      setStatus('error')
+      if (!ingest?.survey_id) return
+      api.surveyExists(ingest.survey_id).then((exists) => {
+        if (!disposed && !exists) setStatus('expired')
+      })
+    }
     image.src = assetUrl(src)
 
     const onResize = () => {
@@ -213,8 +226,18 @@ export default function ReliefView({ ingest, detections = [] }) {
               waterfall blocked by cross-origin policy — relief unavailable
             </p>
           )}
+          {status === 'expired' && (
+            <p className="mt-2 font-mono text-2xs text-amber">
+              this survey is no longer on the server — the instance discards
+              processed frames when it sleeps. Ingest the line again to rebuild
+              the relief surface.
+            </p>
+          )}
           {status === 'error' && (
-            <p className="mt-2 font-mono text-2xs text-coral">could not load the waterfall</p>
+            <p className="mt-2 font-mono text-2xs text-coral">
+              could not load the waterfall — the survey is still on the server,
+              so this is the image request itself failing.
+            </p>
           )}
 
           <dl className="mt-3 grid grid-cols-3 gap-3 border-t border-ink/10 pt-3">
