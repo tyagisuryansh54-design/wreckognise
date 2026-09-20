@@ -27,7 +27,14 @@ import { BentoCard, CardHeader, EmptyState } from './Primitives'
 import { IconLayers } from './Icons'
 import { api, assetUrl } from '../utils/api'
 
-const STRIDE = 3          // sample every Nth pixel; 1 would be ~1M points
+/*
+ * Point budget rather than a fixed stride. A bundled demo frame is under a
+ * megapixel; a real USGS line arrives at 2048 x 1695 and a phone photo at
+ * 4 MP, and a fixed stride of 3 turns those into 400k-plus points with six
+ * floats each. The stride is derived per swath so every source lands near the
+ * same budget -- the demo keeps its detail and real data stays interactive.
+ */
+const POINT_BUDGET = 250_000
 const Z_SCALE = 14        // metres of relief at full backscatter, for legibility
 
 /** Terminal-green ramp, dark seabed through to a lit return. */
@@ -94,17 +101,33 @@ export default function ReliefView({ ingest, detections = [] }) {
       const halfSwath = swath / 2
       const nadir = w / 2
 
+      const stride = Math.max(1, Math.round(Math.sqrt((w * h) / POINT_BUDGET)))
+
+      /*
+       * The nadir gap: where the slant range has not yet reached the seabed.
+       *
+       * Below this the ping is still travelling through water, so there is no
+       * bottom return to place and sqrt(slant^2 - alt^2) is zero. Keeping
+       * those samples piles them all onto x=0 as a vertical sheet -- and on a
+       * real line it is not a minor artefact. The USGS Grand Bay survey flies
+       * at 60 m altitude with a 100 m range, so SIXTY PERCENT of every ping is
+       * water column, and that sheet was most of what the view rendered.
+       *
+       * Real side-scan processing discards this region rather than plotting
+       * it, which is what the gap down the middle of a waterfall image is.
+       */
       const positions = []
       const colours = []
-      for (let row = 0; row < h; row += STRIDE) {
-        for (let col = 0; col < w; col += STRIDE) {
+      for (let row = 0; row < h; row += stride) {
+        for (let col = 0; col < w; col += stride) {
           const intensity = data[(row * w + col) * 4] / 255
-          if (intensity < 0.06) continue          // water column and dead shadow
+          if (intensity < 0.06) continue          // dead shadow
 
           // Slant range from the nadir gap outward, then corrected to ground
           // range -- the same solve the georeferencer does per contact.
           const slant = (Math.abs(col - nadir) / nadir) * halfSwath
-          const ground = Math.sqrt(Math.max(0, slant * slant - altitude * altitude))
+          if (slant <= altitude) continue         // still in the water column
+          const ground = Math.sqrt(slant * slant - altitude * altitude)
           const x = Math.sign(col - nadir) * ground
           const y = (row / h) * along - along / 2
           const z = intensity * Z_SCALE
@@ -244,7 +267,11 @@ export default function ReliefView({ ingest, detections = [] }) {
             <div>
               <p className="label text-ink/40">X · across track</p>
               <p className="font-mono text-2xs text-ink/70">
-                ground range, slant-corrected
+                {meta
+                  ? `ground range · ${Math.round(
+                      Math.min(0.95, (meta.mean_altitude_m || 10) / ((meta.swath_width_m || 200) / 2)) * 100,
+                    )}% nadir gap removed`
+                  : 'ground range, slant-corrected'}
               </p>
             </div>
             <div>
