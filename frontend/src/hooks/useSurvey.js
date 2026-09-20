@@ -188,7 +188,17 @@ export function useSurvey() {
     [ingest, inference],
   )
 
-  const detections = inference?.detections ?? []
+  /*
+   * Memoised, and the reason is not tidiness. `inference?.detections ?? []`
+   * evaluates to a NEW empty array on every render until detection has run.
+   * ReliefView keys its effect on this value, and that effect sets state --
+   * so each render produced a new array, which re-ran the effect, which set
+   * state, which rendered. The image load was torn down and restarted before
+   * it could ever finish, and the panel stayed blank. It only settled once
+   * detection ran and `inference.detections` became a stable reference, which
+   * is why the relief view sometimes "worked" and mostly did not.
+   */
+  const detections = useMemo(() => inference?.detections ?? [], [inference])
 
   const selected = useMemo(
     () => detections.find((d) => d.detection_id === selectedId) ?? null,

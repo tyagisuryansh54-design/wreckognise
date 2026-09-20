@@ -60,6 +60,11 @@ class Settings(BaseSettings):
     #
     # "auth" is credential guessing, where the low number IS the protection.
     # It keeps the old budget.
+    # Off for the time being, at the operator's request: the throttle has been
+    # in the way of real use more than it has stopped abuse. The credential
+    # routes keep their guard regardless of this flag -- that one is not an
+    # abuse heuristic, it is what stands between scrypt and an offline cracker.
+    rate_limit_enabled: bool = False
     rate_limit_heavy: int = 40
     rate_limit_heavy_window_s: int = 300
     rate_limit_auth: int = 12

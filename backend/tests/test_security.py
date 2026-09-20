@@ -21,6 +21,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+# The throttle is off by default now; this suite exercises it, so switch it on
+# before settings are read. Set at import, like test_auth does for auth.
+import os  # noqa: E402
+
+os.environ["WRECKOGNISE_RATE_LIMIT_ENABLED"] = "true"
+
 from fastapi.testclient import TestClient  # noqa: E402
 
 from app.config import settings  # noqa: E402

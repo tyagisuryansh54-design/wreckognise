@@ -164,6 +164,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         tier, limit, window = self._tier_for(request.url.path)
+        if tier != "auth" and not settings.rate_limit_enabled:
+            return await call_next(request)
         key = (client_ip(request), tier)
 
         allowed, retry_after = self._check(key, limit, window)

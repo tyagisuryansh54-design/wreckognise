@@ -53,6 +53,9 @@ export default function ReliefView({ ingest, detections = [], onRecover }) {
 
   const meta = ingest?.metadata
   const src = ingest?.filtered_waterfall_png
+  // Content key, so a caller handing over a fresh-but-equal array cannot
+  // re-run the effect. Identity is not a fact about the data.
+  const detectionKey = detections.map((d) => d.detection_id).join(',')
 
   useEffect(() => {
     if (!src || !meta || !mountRef.current) return
@@ -252,7 +255,7 @@ export default function ReliefView({ ingest, detections = [], onRecover }) {
       })
       if (renderer.domElement.parentNode === mount) mount.removeChild(renderer.domElement)
     }
-  }, [src, meta, detections])
+  }, [src, meta, detectionKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <BentoCard tone="light" className="flex flex-col p-6">
