@@ -92,6 +92,7 @@ export default function App() {
     generateReport,
     reviewContact,
     acknowledgeHazard,
+    recover,
   } = survey
 
   /*
@@ -248,7 +249,7 @@ export default function App() {
                 </div>
               }
             >
-              <ReliefView ingest={ingest} detections={detections} />
+              <ReliefView ingest={ingest} detections={detections} onRecover={recover} />
             </Suspense>
           </Section>
 

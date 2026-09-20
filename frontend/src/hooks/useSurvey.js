@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api, onBackendWaking } from '../utils/api'
 
 /**
@@ -62,6 +62,22 @@ export function useSurvey() {
     }
   }, [])
 
+  /*
+   * How the current survey was made, as a replayable thunk.
+   *
+   * The backend holds surveys in memory and processed frames on an ephemeral
+   * disk, so a restart -- a deploy, or the free instance waking from sleep --
+   * leaves the page holding a survey the server has no record of. Every panel
+   * then fails on its own: the waterfall 404s, the chart has no track, the
+   * relief surface cannot be built.
+   *
+   * Replaying the original call rebuilds all of it. For the demo and the
+   * bundled samples there is nothing to keep; for an upload the closure holds
+   * the File, which is why this is a thunk rather than a description.
+   */
+  const sourceRef = useRef(null)
+  const recoveringRef = useRef(false)
+
   const resetDownstream = useCallback(() => {
     setInference(null)
     setReport(null)
@@ -71,6 +87,7 @@ export function useSurvey() {
   const loadDemo = useCallback(
     (denoiseMethod = 'nlm') =>
       run('ingest', async () => {
+        sourceRef.current = () => api.loadDemo(denoiseMethod)
         const result = await api.loadDemo(denoiseMethod)
         setIngest(result)
         resetDownstream()
@@ -84,6 +101,7 @@ export function useSurvey() {
   const loadSample = useCallback(
     (filename, denoiseMethod = 'nlm') =>
       run('ingest', async () => {
+        sourceRef.current = () => api.loadSample(filename, denoiseMethod)
         const result = await api.loadSample(filename, denoiseMethod)
         setIngest(result)
         resetDownstream()
@@ -96,6 +114,7 @@ export function useSurvey() {
   const uploadFile = useCallback(
     (file, options) =>
       run('ingest', async () => {
+        sourceRef.current = () => api.upload(file, options)
         const result = await api.upload(file, options)
         setIngest(result)
         resetDownstream()
@@ -207,6 +226,38 @@ export function useSurvey() {
     [ingest],
   )
 
+  /**
+   * Rebuild a survey the server has forgotten.
+   *
+   * Guarded against re-entry: several panels can notice the loss at once, and
+   * three of them each kicking off an ingest would be worse than the failure.
+   * Detection is re-run only if it had already been run, so recovery restores
+   * what was on screen rather than silently discarding the operator's
+   * contacts along with the survey.
+   */
+  const recover = useCallback(async () => {
+    const replay = sourceRef.current
+    if (!replay || recoveringRef.current) return null
+    recoveringRef.current = true
+    const hadInference = Boolean(inference)
+    try {
+      return await run('ingest', async () => {
+        const result = await replay()
+        setIngest(result)
+        resetDownstream()
+        setTelemetry(await api.telemetry(result.survey_id))
+        if (hadInference) {
+          const again = await api.detect(result.survey_id)
+          setInference(again)
+          setSelectedId(again.detections[0]?.detection_id ?? null)
+        }
+        return result
+      })
+    } finally {
+      recoveringRef.current = false
+    }
+  }, [run, resetDownstream, inference])
+
   const stage = useMemo(() => {
     if (inference) return 'complete'
     if (ingest) return 'preprocessed'
@@ -231,6 +282,7 @@ export function useSurvey() {
     clearError: () => setError(null),
     loadDemo,
     loadSample,
+    recover,
     samples,
     uploadFile,
     detect,

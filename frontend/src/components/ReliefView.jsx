@@ -43,10 +43,13 @@ function ramp(t) {
   return [0.02 + 0.08 * t, 0.18 + 0.82 * t, 0.12 + 0.25 * t]
 }
 
-export default function ReliefView({ ingest, detections = [] }) {
+export default function ReliefView({ ingest, detections = [], onRecover }) {
   const mountRef = useRef(null)
   const [status, setStatus] = useState('idle')
   const [points, setPoints] = useState(0)
+  // One attempt per survey id. Without the guard a recovery that fails for
+  // any other reason would retry forever.
+  const recoveredFor = useRef(null)
 
   const meta = ingest?.metadata
   const src = ingest?.filtered_waterfall_png
@@ -191,7 +194,15 @@ export default function ReliefView({ ingest, detections = [] }) {
       setStatus('error')
       if (!ingest?.survey_id) return
       api.surveyExists(ingest.survey_id).then((exists) => {
-        if (!disposed && !exists) setStatus('expired')
+        if (disposed || exists) return
+        setStatus('expired')
+        // Rebuild it rather than asking the operator to. The call that made
+        // this survey is replayable, so the honest recovery is to replay it.
+        if (onRecover && recoveredFor.current !== ingest.survey_id) {
+          recoveredFor.current = ingest.survey_id
+          setStatus('recovering')
+          onRecover()
+        }
       })
     }
     image.src = assetUrl(src)
@@ -249,11 +260,15 @@ export default function ReliefView({ ingest, detections = [] }) {
               waterfall blocked by cross-origin policy — relief unavailable
             </p>
           )}
+          {status === 'recovering' && (
+            <p className="mt-2 font-mono text-2xs text-azure">
+              the server no longer had this survey — rebuilding it…
+            </p>
+          )}
           {status === 'expired' && (
             <p className="mt-2 font-mono text-2xs text-amber">
-              this survey is no longer on the server — the instance discards
-              processed frames when it sleeps. Ingest the line again to rebuild
-              the relief surface.
+              this survey is no longer on the server and could not be rebuilt
+              automatically — ingest the line again.
             </p>
           )}
           {status === 'error' && (
