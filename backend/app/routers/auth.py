@@ -7,6 +7,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 
 from ..config import settings
+from ..middleware import client_ip
 from ..models.schemas import (
     LoginRequest,
     PasswordChangeRequest,
@@ -25,6 +26,16 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 INVALID = "Invalid credentials."
 
 
+# The dashboard (Vercel) and the API (Render) are different SITES, and a
+# browser never attaches a SameSite=strict cookie to a cross-site request --
+# nor stores one set by a cross-site response. "strict" meant login answered
+# 200 and nothing after it was ever authenticated. None is the only value that
+# crosses the boundary; it requires Secure, which production sets, and it is
+# why AuthGate checks Origin on unsafe methods. Lax locally, where the Vite
+# proxy keeps everything same-site.
+_SAMESITE = "none" if settings.is_production else "lax"
+
+
 def _set_session_cookie(response: Response, token: str) -> None:
     response.set_cookie(
         key=settings.session_cookie_name,
@@ -32,7 +43,7 @@ def _set_session_cookie(response: Response, token: str) -> None:
         max_age=settings.session_ttl_seconds,
         httponly=True,            # unreadable from JavaScript, so XSS cannot lift it
         secure=settings.is_production,   # refuse to travel over plaintext
-        samesite="strict",        # not attached to cross-site requests at all
+        samesite=_SAMESITE,
         path="/",
     )
 
@@ -43,7 +54,7 @@ def _clear_session_cookie(response: Response) -> None:
         path="/",
         httponly=True,
         secure=settings.is_production,
-        samesite="strict",
+        samesite=_SAMESITE,
     )
 
 
@@ -80,11 +91,9 @@ def optional_user(request: Request) -> auth.User | None:
 
 
 @router.post("/login", response_model=SessionResponse)
-async def login(payload: LoginRequest, request: Request, response: Response) -> SessionResponse:
+def login(payload: LoginRequest, request: Request, response: Response) -> SessionResponse:
     """Exchange a username and password for a session cookie."""
-    client = request.headers.get("x-forwarded-for", "").split(",")[0].strip() or (
-        request.client.host if request.client else "unknown"
-    )
+    client = client_ip(request)
     user = auth.authenticate(payload.username, payload.password)
 
     if user is None:
@@ -126,7 +135,7 @@ async def me(user: auth.User = Depends(current_user)) -> UserResponse:
 
 
 @router.post("/password")
-async def change_password(
+def change_password(
     payload: PasswordChangeRequest,
     request: Request,
     response: Response,

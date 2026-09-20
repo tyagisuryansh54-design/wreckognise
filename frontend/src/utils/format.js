@@ -45,16 +45,22 @@ export const severityStyle = (severity) => SEVERITY_STYLES[severity] ?? SEVERITY
 export const CLASS_LABELS = {
   shipwreck: 'Shipwreck',
   aircraft: 'Aircraft',
-  casualty: 'Casualty',
-  debris_field: 'Debris Field',
+  sar_contact: 'SAR Contact',
   container: 'Container',
+  ghost_net: 'Ghost Net',
+  anchor_debris: 'Anchor Debris',
+  debris_field: 'Debris Field',
   pipeline: 'Pipeline',
   boulder: 'Boulder',
   uxo: 'Ordnance (UXO)',
   unknown: 'Unclassified',
 }
 
-export const classLabel = (value) => CLASS_LABELS[value] ?? 'Unclassified'
+// Second argument is the backend's own display_name, so a class this map has
+// not caught up with still renders as what the catalogue calls it rather than
+// as "Unclassified" -- which is how a correct SAR contact was being shown.
+export const classLabel = (value, displayName) =>
+  CLASS_LABELS[value] ?? displayName ?? 'Unclassified'
 
 export const REVIEW_LABELS = {
   pending: 'Pending',

@@ -85,10 +85,17 @@ async def download(
 
 
 @router.get("/list")
-async def list_reports() -> dict:
-    reports = sorted(
-        settings.report_dir.glob("RPT-*"), key=lambda p: p.stat().st_mtime, reverse=True
-    )
+async def list_reports(owner: str | None = Depends(owner_key)) -> dict:
+    # Filtered by ownership, like download is. Listing every tenant's filenames
+    # while refusing to serve them confirms exactly what the 404s are there to
+    # hide.
+    reports = [
+        p
+        for p in sorted(
+            settings.report_dir.glob("RPT-*"), key=lambda p: p.stat().st_mtime, reverse=True
+        )
+        if store.may_access_report(p.name, owner)
+    ]
     return {
         "count": len(reports),
         "reports": [

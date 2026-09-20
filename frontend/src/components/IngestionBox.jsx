@@ -17,7 +17,16 @@ const DENOISE_OPTIONS = [
  * the denoised swath in the same pixels so the filter's effect is visible
  * rather than merely asserted in a metrics table.
  */
-export default function IngestionBox({ ingest, busy, onUpload, onDemo, onSample, samples = [], uploadRef }) {
+export default function IngestionBox({
+  ingest,
+  busy,
+  onUpload,
+  onDemo,
+  onSample,
+  onReprocess,
+  samples = [],
+  uploadRef,
+}) {
   const [method, setMethod] = useState('nlm')
   const [sampleIndex, setSampleIndex] = useState(0)
   const [split, setSplit] = useState(52)
@@ -63,10 +72,17 @@ export default function IngestionBox({ ingest, busy, onUpload, onDemo, onSample,
   // and while a stage is already running.
   useEffect(() => {
     if (lastMethod.current === method) return
+    // Not yet recorded: if a stage is running the change must apply once it
+    // finishes, and `busy` is a dependency, so this re-runs when it clears.
+    // Recording it before the busy check dropped every change made mid-stage.
+    if (!ingest || busy) return
     lastMethod.current = method
-    if (!ingest || busy || !replay.current) return
-    replay.current(method)
-  }, [method, ingest, busy])
+    // The hero's call to action starts a survey without ever passing through
+    // this card, so `replay` is unset for it; the hook-level reprocess covers
+    // every source.
+    if (replay.current) replay.current(method)
+    else if (onReprocess) onReprocess(method)
+  }, [method, ingest, busy, onReprocess])
 
   const onDrop = useCallback(
     (event) => {

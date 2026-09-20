@@ -32,7 +32,7 @@ router = APIRouter(prefix="/api/inference", tags=["inference"])
 
 
 @router.post("/{survey_id}/detect", response_model=InferenceResponse)
-async def detect(
+def detect(
     survey_id: str,
     confidence: float = Query(default=None, ge=0.0, le=1.0),
     iou: float = Query(default=None, ge=0.0, le=1.0),
@@ -71,9 +71,10 @@ async def list_detections(
     min_confidence: float = Query(default=0.0, ge=0.0, le=1.0),
     severity: str | None = None,
     review_status: str | None = None,
+    owner: str | None = Depends(owner_key),
 ) -> list[Detection]:
     """Filtered contact list backing the dashboard's anomaly register."""
-    survey = _require(survey_id)
+    survey = _require(survey_id, owner)
     results = [d for d in survey.detections if d.confidence >= min_confidence]
     if severity:
         results = [d for d in results if d.severity.value == severity]
@@ -83,8 +84,10 @@ async def list_detections(
 
 
 @router.get("/{survey_id}/detections/{detection_id}", response_model=Detection)
-async def get_detection(survey_id: str, detection_id: str) -> Detection:
-    survey = _require(survey_id)
+async def get_detection(
+    survey_id: str, detection_id: str, owner: str | None = Depends(owner_key)
+) -> Detection:
+    survey = _require(survey_id, owner)
     for detection in survey.detections:
         if detection.detection_id == detection_id:
             return detection
@@ -93,10 +96,13 @@ async def get_detection(survey_id: str, detection_id: str) -> Detection:
 
 @router.patch("/{survey_id}/detections/{detection_id}/review", response_model=Detection)
 async def review_detection(
-    survey_id: str, detection_id: str, request: ReviewRequest
+    survey_id: str,
+    detection_id: str,
+    request: ReviewRequest,
+    owner: str | None = Depends(owner_key),
 ) -> Detection:
     """Flag a contact, hand it to a human operator, confirm it, or dismiss it."""
-    survey = _require(survey_id)
+    survey = _require(survey_id, owner)
     for detection in survey.detections:
         if detection.detection_id == detection_id:
             detection.review_status = request.review_status
@@ -109,7 +115,10 @@ async def review_detection(
 
 @router.post("/{survey_id}/detections/{detection_id}/acknowledge", response_model=Detection)
 async def acknowledge_hazard(
-    survey_id: str, detection_id: str, operator: str = Query(default="operator")
+    survey_id: str,
+    detection_id: str,
+    operator: str = Query(default="operator"),
+    owner: str | None = Depends(owner_key),
 ) -> Detection:
     """Record that a human has seen a hazard contact.
 
@@ -118,7 +127,7 @@ async def acknowledge_hazard(
     alert requires before it will clear. Conflating the two would let a hazard
     leave the queue as a side effect of routine triage.
     """
-    survey = _require(survey_id)
+    survey = _require(survey_id, owner)
     for detection in survey.detections:
         if detection.detection_id == detection_id:
             if detection.priority != "hazard":
@@ -136,14 +145,16 @@ async def acknowledge_hazard(
 
 
 @router.get("/{survey_id}/detections/{detection_id}/attention")
-async def detection_attention(survey_id: str, detection_id: str) -> FileResponse:
+def detection_attention(
+    survey_id: str, detection_id: str, owner: str | None = Depends(owner_key)
+) -> FileResponse:
     """Eigen-CAM heat map for one contact, computed on demand and cached.
 
     Not generated during detection: it is a second forward pass plus an SVD per
     contact, and most contacts are never asked about. Cached by detection id so
     toggling the overlay twice costs one computation.
     """
-    survey = _require(survey_id)
+    survey = _require(survey_id, owner)
     target = next((d for d in survey.detections if d.detection_id == detection_id), None)
     if target is None:
         raise HTTPException(status_code=404, detail=f"Unknown detection '{detection_id}'")
@@ -167,13 +178,14 @@ async def georeference_pixel(
     survey_id: str,
     x: float = Query(..., description="Waterfall column, 0 = port edge"),
     y: float = Query(..., description="Waterfall row, 0 = first ping"),
+    owner: str | None = Depends(owner_key),
 ) -> GeoSolution:
     """Solve an arbitrary waterfall pixel to WGS-84, with the full audit trail.
 
     Backs the dashboard's live pixel → Lat/Long readout as the operator moves
     the cursor over the swath.
     """
-    survey = _require(survey_id)
+    survey = _require(survey_id, owner)
     height, width = survey.waterfall.shape[:2]
     if not (0 <= x < width and 0 <= y < height):
         raise HTTPException(
@@ -184,13 +196,19 @@ async def georeference_pixel(
 
 
 @router.post("/{survey_id}/georeference/bbox", response_model=GeoSolution)
-async def georeference_bbox(survey_id: str, bbox: BoundingBox) -> GeoSolution:
+async def georeference_bbox(
+    survey_id: str, bbox: BoundingBox, owner: str | None = Depends(owner_key)
+) -> GeoSolution:
     """Solve a manually drawn box -- used when an operator marks a missed contact."""
-    survey = _require(survey_id)
+    survey = _require(survey_id, owner)
     return solve_pixel(survey, bbox.cx, bbox.cy)
 
 
-def _require(survey_id: str, owner: str | None = None):
+def _require(survey_id: str, owner: str | None):
+    # Mandatory, deliberately. Seven routes once called this with no owner and
+    # answered 404 to the survey's own owner the moment auth was switched on;
+    # a default of None let that compile. A future route that forgets to
+    # thread the owner now fails at first request instead of silently.
     survey = store.get(survey_id, owner)
     if survey is None:
         raise HTTPException(status_code=404, detail=f"Unknown survey '{survey_id}'")

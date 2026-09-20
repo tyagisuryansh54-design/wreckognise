@@ -67,7 +67,9 @@ def test_login_and_session(client: TestClient) -> None:
 
     cookie = r.headers.get("set-cookie", "")
     check("cookie is HttpOnly", "HttpOnly" in cookie, cookie)
-    check("cookie is SameSite=strict", "samesite=strict" in cookie.lower(), cookie)
+    # lax here, none in production: strict never crossed the Vercel->Render
+    # site boundary, so login 200'd and nothing after it was authenticated.
+    check("cookie is SameSite=lax outside production", "samesite=lax" in cookie.lower(), cookie)
     check("cookie is Path=/", "Path=/" in cookie)
     check("password absent from the response", PASSWORD not in r.text)
 
@@ -140,6 +142,27 @@ def test_password_change_revokes(client: TestClient) -> None:
     client.post("/api/auth/logout", headers=ip(6))
 
 
+def test_csrf_origin_check(client: TestClient) -> None:
+    print("\n-- CSRF origin check --")
+    client.post(
+        "/api/auth/login", json={"username": USERNAME, "password": PASSWORD}, headers=ip(8)
+    )
+    body = {"current_password": "x", "new_password": "y"}
+    evil = client.post(
+        "/api/auth/password", json=body, headers={"Origin": "https://evil.example", **ip(8)}
+    )
+    check("unsafe request from a foreign origin -> 403", evil.status_code == 403, str(evil.status_code))
+    ours = client.post(
+        "/api/auth/password",
+        json=body,
+        headers={"Origin": settings.cors_origin_list[0], **ip(8)},
+    )
+    check("same request from our origin is not refused as CSRF", ours.status_code != 403, str(ours.status_code))
+    none = client.post("/api/auth/password", json=body, headers=ip(8))
+    check("no Origin (non-browser client) is not refused as CSRF", none.status_code != 403, str(none.status_code))
+    client.post("/api/auth/logout", headers=ip(8))
+
+
 def test_login_throttled(client: TestClient) -> None:
     print("\n-- login throttling --")
     headers = ip(7)
@@ -176,6 +199,7 @@ def main() -> int:
         test_no_enumeration(client)
         test_gate(client)
         test_password_change_revokes(client)
+        test_csrf_origin_check(client)
         test_login_throttled(client)
 
     print("\n" + "=" * 62)

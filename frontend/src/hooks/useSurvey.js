@@ -43,7 +43,15 @@ export function useSurvey() {
       .catch(() => setSamples([]))
   }, [])
 
+  // `busy` is one slot and each button only gates on its own stage, so two
+  // stages could overlap with two tickers, and whichever finished first
+  // cleared busy and snapped progress to 100 while the other was still
+  // running. One stage at a time; a second request while one is in flight is
+  // declined, not queued.
+  const running = useRef(false)
   const run = useCallback(async (stage, work) => {
+    if (running.current) return null
+    running.current = true
     setBusy(stage)
     setError(null)
     setProgress(8)
@@ -58,6 +66,7 @@ export function useSurvey() {
       clearInterval(ticker)
       setProgress(100)
       setBusy(null)
+      running.current = false
       setTimeout(() => setProgress(0), 700)
     }
   }, [])
@@ -87,7 +96,7 @@ export function useSurvey() {
   const loadDemo = useCallback(
     (denoiseMethod = 'nlm') =>
       run('ingest', async () => {
-        sourceRef.current = () => api.loadDemo(denoiseMethod)
+        sourceRef.current = (m = denoiseMethod) => api.loadDemo(m)
         const result = await api.loadDemo(denoiseMethod)
         setIngest(result)
         resetDownstream()
@@ -101,7 +110,7 @@ export function useSurvey() {
   const loadSample = useCallback(
     (filename, denoiseMethod = 'nlm') =>
       run('ingest', async () => {
-        sourceRef.current = () => api.loadSample(filename, denoiseMethod)
+        sourceRef.current = (m = denoiseMethod) => api.loadSample(filename, m)
         const result = await api.loadSample(filename, denoiseMethod)
         setIngest(result)
         resetDownstream()
@@ -114,7 +123,8 @@ export function useSurvey() {
   const uploadFile = useCallback(
     (file, options) =>
       run('ingest', async () => {
-        sourceRef.current = () => api.upload(file, options)
+        sourceRef.current = (m = options?.denoiseMethod) =>
+          api.upload(file, { ...options, denoiseMethod: m })
         const result = await api.upload(file, options)
         setIngest(result)
         resetDownstream()
@@ -124,10 +134,15 @@ export function useSurvey() {
     [run, resetDownstream],
   )
 
+  // Remembered so a rebuild re-runs detection at the operator's threshold,
+  // not the backend default -- a silently different contact set after
+  // recovery would be its own kind of data loss.
+  const lastDetectOptions = useRef(undefined)
   const detect = useCallback(
     (options) =>
       run('detect', async () => {
         if (!ingest) throw new Error('Ingest a sonar line before running detection.')
+        lastDetectOptions.current = options
         const result = await api.detect(ingest.survey_id, options)
         setInference(result)
         setReport(null)
@@ -260,7 +275,7 @@ export function useSurvey() {
       resetDownstream()
       setTelemetry(await api.telemetry(result.survey_id))
       if (hadInference) {
-        const again = await api.detect(result.survey_id)
+        const again = await api.detect(result.survey_id, lastDetectOptions.current)
         setInference(again)
         setSelectedId(again.detections[0]?.detection_id ?? null)
       }
@@ -271,6 +286,30 @@ export function useSurvey() {
     inflightRef.current = attempt
     return attempt
   }, [run, resetDownstream, inference])
+
+  /**
+   * Re-run the current source with a different denoise kernel.
+   *
+   * The kernel selector used to work only for surveys started from the
+   * ingestion card's own buttons, because that card kept a private replay
+   * closure the hero's "Explore Live Scan" never set. The source thunk lives
+   * here now and takes the method as an argument, so any survey can be
+   * reprocessed regardless of which control created it.
+   */
+  const reprocess = useCallback(
+    (method) => {
+      const replay = sourceRef.current
+      if (!replay) return null
+      return run('ingest', async () => {
+        const result = await replay(method)
+        setIngest(result)
+        resetDownstream()
+        setTelemetry(await api.telemetry(result.survey_id))
+        return result
+      })
+    },
+    [run, resetDownstream],
+  )
 
   const stage = useMemo(() => {
     if (inference) return 'complete'
@@ -297,6 +336,7 @@ export function useSurvey() {
     loadDemo,
     loadSample,
     recover,
+    reprocess,
     samples,
     uploadFile,
     detect,

@@ -498,7 +498,7 @@ def _build_detection(survey: SonarSurvey, proposal: dict) -> Detection:
     # A bare sonar image carries no navigation, so its metre scale is derived
     # from a simulated track and is arbitrary. Overriding a real prediction with
     # an invented dimension there turns a correct answer into a wrong one.
-    if survey.metadata.file_format != "image":
+    if survey.metadata.file_format != "image" and not survey.metadata.navigation_simulated:
         if catalogue.size_plausibility(label, length_m) < SIZE_OVERRIDE_THRESHOLD:
             label = catalogue.best_match(length_m, width_m, shadow_len_m)
 

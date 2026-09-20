@@ -117,6 +117,59 @@ def main() -> int:
             and bob.get("/static/reports/anything.md").status_code == 404,
         )
 
+        print("\n-- every post-detection route honours the owner --")
+        found = alice.post(f"/api/inference/{survey_id}/detect").json()["detections"]
+        did = found[0]["detection_id"] if found else None
+        check("a detection exists to probe with", did is not None)
+        if did:
+            probes = [
+                ("list detections", lambda c: c.get(f"/api/inference/{survey_id}/detections")),
+                ("get detection", lambda c: c.get(f"/api/inference/{survey_id}/detections/{did}")),
+                ("review", lambda c: c.patch(
+                    f"/api/inference/{survey_id}/detections/{did}/review",
+                    json={"review_status": "flagged"},
+                )),
+                ("acknowledge", lambda c: c.post(
+                    f"/api/inference/{survey_id}/detections/{did}/acknowledge"
+                )),
+                ("attention", lambda c: c.get(
+                    f"/api/inference/{survey_id}/detections/{did}/attention"
+                )),
+                ("georeference", lambda c: c.get(
+                    f"/api/inference/{survey_id}/georeference", params={"x": 10, "y": 10}
+                )),
+                ("georeference bbox", lambda c: c.post(
+                    f"/api/inference/{survey_id}/georeference/bbox",
+                    json={"x": 10, "y": 10, "width": 5, "height": 5},
+                )),
+            ]
+            for label, call in probes:
+                a = call(alice).status_code
+                b = call(bob).status_code
+                # acknowledge legitimately 409s on a non-hazard contact and
+                # attention 503s without onnx; the ownership fact is "not 404".
+                check(f"alice: {label} is not 404", a != 404, str(a))
+                check(f"bob: {label} -> 404", b == 404, str(b))
+
+        print("\n-- generated reports --")
+        made = alice.post(
+            "/api/reports/generate", json={"survey_id": survey_id, "format": "json"}
+        )
+        check("alice generates a report", made.status_code == 200, made.text[:120])
+        if made.status_code == 200:
+            download = made.json()["download_url"]
+            check("alice downloads it", alice.get(download).status_code == 200)
+            check(
+                "bob cannot, even with the exact URL",
+                bob.get(download).status_code == 404,
+                f"got {bob.get(download).status_code}",
+            )
+            fname = download.rsplit("/", 1)[-1]
+            alice_list = [r["filename"] for r in alice.get("/api/reports/list").json()["reports"]]
+            bob_list = [r["filename"] for r in bob.get("/api/reports/list").json()["reports"]]
+            check("alice's listing includes her report", fname in alice_list)
+            check("bob's listing does not name it", fname not in bob_list)
+
         print("\n-- alice keeps control of her own data --")
         check("she can delete it", alice.delete(f"/api/ingest/{survey_id}").status_code == 200)
         check(

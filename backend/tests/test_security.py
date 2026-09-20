@@ -164,6 +164,22 @@ def test_rate_limit(client: TestClient) -> None:
         f"got {other.status_code}",
     )
 
+    # Spoofing the FIRST X-Forwarded-For entry must not buy a fresh bucket:
+    # the limiter keys on the last entry, which the proxy wrote.
+    spoofed = [
+        client.post(
+            "/api/ingest/upload",
+            files={"file": ("probe.txt", io.BytesIO(b"x"), "text/plain")},
+            headers={"X-Forwarded-For": f"10.0.0.{n}, 198.51.100.77"},
+        ).status_code
+        for n in range(settings.rate_limit_heavy + 2)
+    ]
+    check(
+        "rotating the client-supplied XFF entry does not evade the throttle",
+        spoofed[-1] == 429,
+        f"last status {spoofed[-1]}",
+    )
+
 
 def test_cors_not_credentialed(client: TestClient) -> None:
     print("\n-- CORS --")

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useRef } from 'react'
+import { Component, lazy, Suspense, useRef } from 'react'
 import { useAuth } from './hooks/useAuth'
 import { useInView } from './hooks/useMotion'
 import { useSurvey } from './hooks/useSurvey'
@@ -18,7 +18,59 @@ import MapBox from './components/MapBox'
  * the cost lands on the reader who scrolls to it rather than on everyone who
  * opens the site.
  */
-const ReliefView = lazy(() => import('./components/ReliefView'))
+/*
+ * Loaded on demand, and made to survive a redeploy. Vite hashes chunk names,
+ * so after a deploy the URL this page holds for the relief chunk no longer
+ * exists; vercel.json then rewrites it to index.html, the module import gets
+ * HTML, and the dynamic import rejects -- which, without a boundary, unmounts
+ * the whole tree. One reload picks up the new index; the boundary below keeps
+ * the rest of the page up if that still fails.
+ */
+const RELOAD_KEY = 'wr.chunk-reload'
+const ReliefView = lazy(() =>
+  import('./components/ReliefView')
+    .then((mod) => {
+      try {
+        sessionStorage.removeItem(RELOAD_KEY)
+      } catch {
+        /* storage unavailable: nothing to clear */
+      }
+      return mod
+    })
+    .catch((err) => {
+      let reloaded = false
+      try {
+        reloaded = sessionStorage.getItem(RELOAD_KEY) === '1'
+        if (!reloaded) sessionStorage.setItem(RELOAD_KEY, '1')
+      } catch {
+        /* storage unavailable: fall through to the boundary */
+      }
+      if (!reloaded) window.location.reload()
+      throw err
+    }),
+)
+
+/** Keeps a failed lazy import to its own panel instead of the whole page. */
+class ReliefBoundary extends Component {
+  state = { failed: false }
+
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+
+  render() {
+    if (this.state.failed) {
+      return (
+        <div className="flex h-80 items-center justify-center rounded border border-ink/10 bg-sand">
+          <p className="font-mono text-2xs text-coral">
+            the 3D renderer could not be loaded — reload the page to pick up the latest build
+          </p>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 import ContactRegister from './components/ContactRegister'
 import ActionBox from './components/ActionBox'
 import { ProgressBar } from './components/Primitives'
@@ -93,6 +145,7 @@ export default function App() {
     reviewContact,
     acknowledgeHazard,
     recover,
+    reprocess,
   } = survey
 
   /*
@@ -102,7 +155,8 @@ export default function App() {
    * coordinate on screen is read as a fix. So they are withheld for image
    * sources rather than shown with a caveat nobody reads.
    */
-  const simulatedNav = ingest?.metadata?.file_format === 'image'
+  const simulatedNav =
+    ingest?.metadata?.file_format === 'image' || Boolean(ingest?.metadata?.navigation_simulated)
 
   return (
     <div className="min-h-screen">
@@ -204,6 +258,7 @@ export default function App() {
               onUpload={uploadFile}
               onDemo={loadDemo}
               onSample={loadSample}
+              onReprocess={reprocess}
               samples={samples}
             />
           </Section>
@@ -242,15 +297,17 @@ export default function App() {
           </Section>
 
           <Section id="relief" label="05 / relief" title="The swath, in three dimensions.">
-            <Suspense
-              fallback={
-                <div className="flex h-80 items-center justify-center rounded border border-ink/10 bg-sand">
-                  <p className="font-mono text-2xs text-ink-dim">loading renderer…</p>
-                </div>
-              }
-            >
-              <ReliefView ingest={ingest} detections={detections} onRecover={recover} />
-            </Suspense>
+            <ReliefBoundary>
+              <Suspense
+                fallback={
+                  <div className="flex h-80 items-center justify-center rounded border border-ink/10 bg-sand">
+                    <p className="font-mono text-2xs text-ink-dim">loading renderer…</p>
+                  </div>
+                }
+              >
+                <ReliefView ingest={ingest} detections={detections} onRecover={recover} />
+              </Suspense>
+            </ReliefBoundary>
           </Section>
 
           <Section id="register" label="06 / triage" title="Contacts, dispositioned.">

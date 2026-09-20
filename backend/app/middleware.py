@@ -21,6 +21,7 @@ which by definition cannot require a session.
 from __future__ import annotations
 
 import logging
+import re
 import time
 from collections import deque
 from threading import Lock
@@ -68,7 +69,11 @@ def client_ip(request: Request) -> str:
     """
     forwarded = request.headers.get("x-forwarded-for", "")
     if forwarded:
-        return forwarded.split(",")[0].strip()
+        # The LAST entry, not the first. A proxy appends the address it saw to
+        # whatever the client sent, so the first entry is client-controlled
+        # and the last is the proxy's own observation. Keying on the first let
+        # anyone rotate the login throttle away with a header.
+        return forwarded.split(",")[-1].strip()
     return request.client.host if request.client else "unknown"
 
 
@@ -243,6 +248,14 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             del self._hits[key]
 
 
+def _origin_allowed(origin: str) -> bool:
+    """Same allow-list CORS uses: explicit origins, plus the optional regex."""
+    if origin in settings.cors_origin_list:
+        return True
+    pattern = settings.cors_origin_regex
+    return bool(pattern and re.fullmatch(pattern, origin))
+
+
 class AuthGateMiddleware(BaseHTTPMiddleware):
     """Require a live session for the API, once `require_auth` is on.
 
@@ -278,6 +291,21 @@ class AuthGateMiddleware(BaseHTTPMiddleware):
             or not path.startswith("/api/")
         ):
             return await call_next(request)
+
+        # Cross-site request forgery. The session cookie has to be SameSite=None
+        # to cross the dashboard->API site boundary at all, so the cookie alone
+        # no longer says where a request came from. Browsers attach Origin to
+        # every cross-site unsafe request and it cannot be set by page script,
+        # so an Origin that is present and not ours is a forgery. Absent means
+        # a non-browser client (curl, the test suite), which CSRF cannot reach.
+        if request.method not in ("GET", "HEAD", "OPTIONS"):
+            origin = request.headers.get("origin")
+            if origin and not _origin_allowed(origin):
+                logger.warning(
+                    "csrf refused | ip=%s path=%s origin=%s",
+                    client_ip(request), path, origin[:80],
+                )
+                return JSONResponse(status_code=403, content={"detail": "Origin not allowed."})
 
         # Imported here, not at module scope: auth imports config, config is
         # imported by this module, and a top-level import would close the loop.

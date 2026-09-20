@@ -27,8 +27,45 @@ def check(name: str, condition: bool, detail: str = "") -> None:
         FAILURES.append(name)
 
 
+def test_ingest_guards(client: TestClient) -> None:
+    print("\n=== Ingest guards ===")
+    from PIL import Image
+
+    from app.config import settings
+
+    # A header that promises 64 MP in a file of a few KB: must be refused from
+    # the header alone, before anything is decoded.
+    buf = io.BytesIO()
+    Image.new("L", (8000, 8000), 0).save(buf, format="PNG")
+    buf.seek(0)
+    r = client.post("/api/ingest/upload", files={"file": ("bomb.png", buf, "image/png")})
+    check("oversized image header is refused with 422", r.status_code == 422, f"got {r.status_code}")
+    check("and says why", "decode limit" in r.text, r.text[:100])
+
+    # The demo route must never decode a file that happens to sit in the
+    # upload directory under the requested name.
+    planted = settings.upload_dir / "Probe-Line.xtf"
+    planted.write_bytes(b"not an xtf at all")
+    try:
+        r = client.post("/api/ingest/demo", data={"line_name": "Probe-Line.xtf"})
+        meta = r.json().get("metadata", {})
+        check(
+            "demo with a planted filename still synthesises",
+            r.status_code == 200 and meta.get("file_format") == "synthetic",
+            f"{r.status_code} {meta.get('file_format')}",
+        )
+        check(
+            "and never touched the planted file",
+            "no capture file" in meta.get("parser", ""),
+            meta.get("parser", ""),
+        )
+    finally:
+        planted.unlink(missing_ok=True)
+
+
 def main() -> int:
     client = TestClient(app)
+    test_ingest_guards(client)
 
     print("\n=== System ===")
     r = client.get("/")

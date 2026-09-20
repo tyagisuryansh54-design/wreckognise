@@ -211,6 +211,11 @@ def _packet_datetime(ping) -> datetime:
             int(ping.Hour),
             int(ping.Minute),
             int(ping.Second),
+            # HSeconds is hundredths. Without it every ping in the same wall-
+            # clock second shares a timestamp, the per-ping spacing quantises
+            # to whole seconds, and along-track length comes out wrong by a
+            # row-dependent factor.
+            min(999_999, max(0, int(getattr(ping, "HSeconds", 0) or 0) * 10_000)),
             tzinfo=timezone.utc,
         )
     except (ValueError, AttributeError, TypeError):
@@ -270,6 +275,8 @@ def _read_jsf(path: Path, survey_id: str) -> SonarSurvey:
         survey_id=survey_id,
         path=path,
         fmt="jsf",
+        # The JSF walker reads samples, not navigation: this track is invented.
+        navigation_simulated=True,
         telemetry=telemetry,
         waterfall=waterfall,
         parser="wreckognise.jsf",
@@ -511,15 +518,21 @@ def _build_metadata(
     waterfall: np.ndarray,
     parser: str,
     frequency_khz: tuple[float, float],
+    navigation_simulated: bool = False,
 ) -> SonarMetadata:
     lats = [t.latitude for t in telemetry]
     lons = [t.longitude for t in telemetry]
     slant = telemetry[0].slant_range_m
     samples_per_side = waterfall.shape[1] // 2
 
+    # Equirectangular, not a raw degree distance: a degree of longitude is
+    # cos(latitude) of a degree of latitude, and treating them as equal
+    # overstates an east-west line by 16% at 30 N and 74% at 55 N.
     line_length = 0.0
     for a, b in zip(telemetry, telemetry[1:]):
-        line_length += math.dist((a.latitude, a.longitude), (b.latitude, b.longitude)) * 111_320
+        dlat = b.latitude - a.latitude
+        dlon = (b.longitude - a.longitude) * math.cos(math.radians((a.latitude + b.latitude) / 2))
+        line_length += math.hypot(dlat, dlon) * 111_320
 
     duration = (telemetry[-1].timestamp - telemetry[0].timestamp).total_seconds()
 
@@ -552,6 +565,7 @@ def _build_metadata(
         start_time=telemetry[0].timestamp,
         bounds=GeoBounds(north=max(lats), south=min(lats), east=max(lons), west=min(lons)),
         parser=parser,
+        navigation_simulated=navigation_simulated,
     )
 
 # --------------------------------------------------------------------------- #
@@ -610,6 +624,43 @@ def read_image_sample(filename: str, survey_id: str) -> SonarSurvey:
     return read_image_file(path, survey_id)
 
 
+# What we are willing to DECODE, as distinct from MAX_INPUT_PIXELS, which is
+# what we are willing to PROCESS. cv2.imread allocates the full frame before
+# _fit_pixel_budget ever sees it: a 20000x20000 all-black PNG is a few hundred
+# KB on disk and a ~380 MB allocation on decode, on a 512 MB instance. The
+# 4 MP cap bounded preprocessing cost; it never bounded the decode itself.
+MAX_DECODE_PIXELS = 50_000_000
+
+
+def _check_decode_budget(path: Path) -> None:
+    """Refuse to decode an image whose HEADER says it exceeds MAX_DECODE_PIXELS.
+
+    Pillow's open() is lazy -- it parses the header and never touches pixel
+    data -- so this costs nothing. If Pillow cannot identify the file at all,
+    return and let cv2.imread decide exactly as it does today.
+    """
+    import warnings
+
+    from PIL import Image, UnidentifiedImageError
+
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", Image.DecompressionBombWarning)
+            with Image.open(path) as im:
+                width, height = im.size
+    except Image.DecompressionBombError as exc:
+        raise ValueError(
+            f"image '{path.name}' exceeds the {MAX_DECODE_PIXELS:,}-pixel decode limit"
+        ) from exc
+    except (UnidentifiedImageError, OSError):
+        return
+    if width * height > MAX_DECODE_PIXELS:
+        raise ValueError(
+            f"image '{path.name}' is {width}x{height}; the decode limit is "
+            f"{MAX_DECODE_PIXELS:,} pixels"
+        )
+
+
 def read_image_file(path: Path, survey_id: str) -> SonarSurvey:
     """Load a sonar IMAGE as a survey the rest of the pipeline can process.
 
@@ -625,6 +676,7 @@ def read_image_file(path: Path, survey_id: str) -> SonarSurvey:
     """
     import cv2
 
+    _check_decode_budget(path)
     image = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
     if image is None:
         raise ValueError(f"could not decode image '{path.name}'")
@@ -642,6 +694,7 @@ def read_image_file(path: Path, survey_id: str) -> SonarSurvey:
         survey_id=survey_id,
         path=path,
         fmt="image",
+        navigation_simulated=True,
         telemetry=telemetry,
         waterfall=image,
         parser=(

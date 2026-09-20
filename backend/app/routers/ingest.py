@@ -32,7 +32,7 @@ router = APIRouter(prefix="/api/ingest", tags=["ingestion"])
 
 
 @router.post("/upload", response_model=IngestResponse)
-async def upload_sonar(
+def upload_sonar(
     file: UploadFile = File(..., description="Raw .xtf / .jsf sonar file, or an exported .jpg / .png waterfall"),
     denoise_method: str = Form(default="nlm"),
     apply_tvg: bool = Form(default=True),
@@ -74,7 +74,7 @@ async def upload_sonar(
                     break
                 target.write(chunk)
     finally:
-        await file.close()
+        file.file.close()
 
     if oversize:
         stored_path.unlink(missing_ok=True)
@@ -94,7 +94,7 @@ async def upload_sonar(
 
 
 @router.post("/demo", response_model=IngestResponse)
-async def load_demo(
+def load_demo(
     denoise_method: str = Form(default="nlm"),
     line_name: str = Form(default="GoM-Line-07.xtf"),
     owner: str | None = Depends(owner_key),
@@ -104,7 +104,11 @@ async def load_demo(
     Backs the dashboard's "Explore Live Scan" call to action.
     """
     survey_id = f"SVY-{uuid.uuid4().hex[:10].upper()}"
-    virtual_path = settings.upload_dir / Path(line_name).name
+    # A subdirectory nothing ever writes to. The path is only a NAME here --
+    # the demo is modelled, and _seed_of keys on path.name so the same line
+    # renders identically every time. Pointing it straight at upload_dir let
+    # a caller name another tenant's stored upload and have it decoded.
+    virtual_path = settings.upload_dir / "demo" / Path(line_name).name
     return _process(
         survey_id, virtual_path, Path(line_name).name, denoise_method, True, True, owner
     )
@@ -191,7 +195,7 @@ async def get_samples() -> dict:
 
 
 @router.post("/sample", response_model=IngestResponse)
-async def load_sample(
+def load_sample(
     filename: str = Form(...),
     denoise_method: str = Form(default="nlm"),
     owner: str | None = Depends(owner_key),

@@ -94,6 +94,10 @@ class SonarMetadata(BaseModel):
     start_time: datetime
     bounds: "GeoBounds"
     parser: str = Field(description="Library that decoded the file, e.g. 'pyxtf'")
+    # True when the track was modelled rather than read from the file. The UI
+    # withholds coordinates and the detector skips the size override in that
+    # case, because a metre scale derived from an invented track is arbitrary.
+    navigation_simulated: bool = False
 
 
 class GeoBounds(BaseModel):
