@@ -50,6 +50,9 @@ export default function ReliefView({ ingest, detections = [], onRecover }) {
   // One attempt per survey id. Without the guard a recovery that fails for
   // any other reason would retry forever.
   const recoveredFor = useRef(null)
+  // Bumped by Retry: re-runs the effect (reload the image) without
+  // re-ingesting, for failures where the survey is still on the server.
+  const [attempt, setAttempt] = useState(0)
 
   const meta = ingest?.metadata
   const src = ingest?.filtered_waterfall_png
@@ -194,31 +197,27 @@ export default function ReliefView({ ingest, detections = [], onRecover }) {
      * genuinely broken image.
      */
     image.onerror = () => {
+      // Symmetric with onload. A run torn down by a newer ingest must not stamp
+      // its failure over the cloud the live run is about to draw.
+      if (disposed) return
       setStatus('error')
       if (!ingest?.survey_id) return
-      api.surveyExists(ingest.survey_id).then((exists) => {
-        if (disposed || exists) return
+      api.surveyExists(ingest.survey_id).then((state) => {
+        if (disposed || state === 'present') return
+        if (state === 'unknown') {
+          // Could not reach the server to ask. Do NOT re-ingest on a guess --
+          // that discards reviewed contacts. Offer a plain retry of the image.
+          setStatus('unreachable')
+          return
+        }
         setStatus('expired')
-        // Rebuild it rather than asking the operator to. The call that made
-        // this survey is replayable, so the honest recovery is to replay it.
         if (!onRecover || recoveredFor.current === ingest.survey_id) return
         recoveredFor.current = ingest.survey_id
         setStatus('recovering')
-
-        /*
-         * The result is checked, and that is the whole point.
-         *
-         * useSurvey.run() catches everything and resolves to null, so a replay
-         * that fails -- a cold start past the timeout, a 429 from the ingest
-         * throttle, a 503 mid-deploy -- never calls setIngest. Nothing changes,
-         * this effect never re-runs, and the "rebuilding…" line stays on screen
-         * for good. Fire-and-forget turned a recoverable failure into a
-         * permanent one.
-         */
         Promise.resolve(onRecover()).then(
           (rebuilt) => {
-            if (disposed || rebuilt) return   // success re-runs the effect
-            recoveredFor.current = null       // let the operator try again
+            if (disposed || rebuilt) return // success re-runs the effect
+            recoveredFor.current = null
             setStatus('expired')
           },
           () => {
@@ -229,6 +228,7 @@ export default function ReliefView({ ingest, detections = [], onRecover }) {
         )
       })
     }
+
     /*
      * A distinct URL from the one the <img> tags use, on purpose.
      *
@@ -256,6 +256,12 @@ export default function ReliefView({ ingest, detections = [], onRecover }) {
 
     return () => {
       disposed = true
+      // Drop the in-flight image as well as the frame loop. Clearing the
+      // handlers is the guarantee; clearing src additionally lets the browser
+      // abandon the fetch instead of finishing it into a dead run.
+      image.onload = null
+      image.onerror = null
+      image.src = ''
       cancelAnimationFrame(frame)
       observer.disconnect()
       controls.dispose()
@@ -269,7 +275,7 @@ export default function ReliefView({ ingest, detections = [], onRecover }) {
       })
       if (renderer.domElement.parentNode === mount) mount.removeChild(renderer.domElement)
     }
-  }, [src, meta, detectionKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [src, meta, detectionKey, attempt]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <BentoCard tone="light" className="flex flex-col p-6">
@@ -298,6 +304,12 @@ export default function ReliefView({ ingest, detections = [], onRecover }) {
               waterfall blocked by cross-origin policy — relief unavailable
             </p>
           )}
+          {(status === 'loading' || status === 'idle') && !points && (
+            <p className="mt-2 flex items-center gap-2 font-mono text-2xs text-ink/40">
+              <Spinner className="h-3 w-3" />
+              loading the waterfall…
+            </p>
+          )}
           {status === 'recovering' && (
             <p className="mt-2 flex items-center gap-2 font-mono text-2xs text-azure">
               <Spinner className="h-3 w-3" />
@@ -306,34 +318,53 @@ export default function ReliefView({ ingest, detections = [], onRecover }) {
             </p>
           )}
 
-          {/* Both failure states are recoverable by hand, so both offer the
-              control rather than describing what the operator should go and
-              do somewhere else. */}
-          {(status === 'expired' || status === 'error') && (
+          {/* Every terminal failure carries the control that fixes it. Retry
+              reloads the image only -- for a survey that is still there, or
+              one we could not check. Rebuild re-ingests, and only when the
+              server has confirmed the survey is gone: re-ingesting on a guess
+              would discard the operator's reviewed contacts. */}
+          {(status === 'expired' || status === 'error' || status === 'unreachable') && (
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
               <p
                 className={`font-mono text-2xs ${
-                  status === 'expired' ? 'text-amber' : 'text-coral'
+                  status === 'expired'
+                    ? 'text-amber'
+                    : status === 'unreachable'
+                      ? 'text-ink/60'
+                      : 'text-coral'
                 }`}
               >
                 {status === 'expired'
                   ? 'the server no longer has this survey and the rebuild did not complete'
-                  : 'could not load the waterfall — the survey is still on the server, so this is the image request failing'}
+                  : status === 'unreachable'
+                    ? 'could not reach the server to check this survey — it may be starting up'
+                    : 'could not load the waterfall — the survey is still on the server, so this is the image request failing'}
               </p>
-              {onRecover && (
+              {status === 'expired' && onRecover ? (
                 <button
                   type="button"
                   onClick={() => {
+                    const id = ingest?.survey_id
                     recoveredFor.current = null
                     setStatus('recovering')
                     Promise.resolve(onRecover()).then(
-                      (r) => !r && setStatus('expired'),
-                      () => setStatus('expired'),
+                      // Only touch status if this is still the survey we
+                      // clicked for; a newer ingest owns the panel by then.
+                      (r) => !r && ingest?.survey_id === id && setStatus('expired'),
+                      () => ingest?.survey_id === id && setStatus('expired'),
                     )
                   }}
                   className="btn-ghost !px-2.5 !py-1 !text-2xs"
                 >
                   Rebuild
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setAttempt((n) => n + 1)}
+                  className="btn-ghost !px-2.5 !py-1 !text-2xs"
+                >
+                  Retry
                 </button>
               )}
             </div>

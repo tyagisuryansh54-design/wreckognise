@@ -192,8 +192,12 @@ export const api = {
    */
   surveyExists: (surveyId) =>
     request(`/api/ingest/${surveyId}/metadata`).then(
-      () => true,
-      () => false,
+      () => 'present',
+      // Only a 404 means the survey is gone. A timeout, a 5xx mid-deploy, a
+      // 401 or a throttle means we could not tell -- and acting on "could not
+      // tell" as if it were "gone" re-ingests the line and throws away every
+      // contact the operator had already reviewed. Unknown stays unknown.
+      (err) => (err?.status === 404 ? 'gone' : 'unknown'),
     ),
 
   telemetry: (surveyId, limit = 400) =>

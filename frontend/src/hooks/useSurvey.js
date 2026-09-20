@@ -76,7 +76,7 @@ export function useSurvey() {
    * the File, which is why this is a thunk rather than a description.
    */
   const sourceRef = useRef(null)
-  const recoveringRef = useRef(false)
+  const inflightRef = useRef(null)
 
   const resetDownstream = useCallback(() => {
     setInference(null)
@@ -245,27 +245,31 @@ export function useSurvey() {
    * what was on screen rather than silently discarding the operator's
    * contacts along with the survey.
    */
-  const recover = useCallback(async () => {
+  const recover = useCallback(() => {
+    // A second caller while a rebuild is in flight gets THE SAME promise, not
+    // a sentinel. Returning null for "already running" made it indistinguishable
+    // from "the replay failed", and the Rebuild button reported failure on a
+    // rebuild that was about to succeed. One promise, one truth.
+    if (inflightRef.current) return inflightRef.current
     const replay = sourceRef.current
-    if (!replay || recoveringRef.current) return null
-    recoveringRef.current = true
+    if (!replay) return Promise.resolve(null)
     const hadInference = Boolean(inference)
-    try {
-      return await run('ingest', async () => {
-        const result = await replay()
-        setIngest(result)
-        resetDownstream()
-        setTelemetry(await api.telemetry(result.survey_id))
-        if (hadInference) {
-          const again = await api.detect(result.survey_id)
-          setInference(again)
-          setSelectedId(again.detections[0]?.detection_id ?? null)
-        }
-        return result
-      })
-    } finally {
-      recoveringRef.current = false
-    }
+    const attempt = run('ingest', async () => {
+      const result = await replay()
+      setIngest(result)
+      resetDownstream()
+      setTelemetry(await api.telemetry(result.survey_id))
+      if (hadInference) {
+        const again = await api.detect(result.survey_id)
+        setInference(again)
+        setSelectedId(again.detections[0]?.detection_id ?? null)
+      }
+      return result
+    }).finally(() => {
+      inflightRef.current = null
+    })
+    inflightRef.current = attempt
+    return attempt
   }, [run, resetDownstream, inference])
 
   const stage = useMemo(() => {
