@@ -301,8 +301,11 @@ export default function App() {
               <div className="flex gap-2 sm:justify-end">
                 <dt className="text-ink-faint/60">detector</dt>
                 <dd className="text-ink-dim">
-                  {health?.version ? `v${health.version}` : 'offline'}
-                  {health?.detection_engine ? ` · ${health.detection_engine}` : ''}
+                  {health === undefined
+                    ? '—'
+                    : health?.version
+                      ? `v${health.version}${health.detection_engine ? ` · ${health.detection_engine}` : ''}`
+                      : 'offline'}
                 </dd>
               </div>
               <div className="flex gap-2 sm:justify-end">

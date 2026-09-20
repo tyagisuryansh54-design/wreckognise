@@ -9,7 +9,11 @@ import { api, onBackendWaking } from '../utils/api'
  * you ingest, or report before you detect) lives in exactly one place.
  */
 export function useSurvey() {
-  const [health, setHealth] = useState(null)
+  // undefined = not asked yet, null = asked and the backend did not answer.
+  // Collapsing the two lets the UI assert "offline" before it knows, which on
+  // a free-tier instance that sleeps is wrong for the first several seconds of
+  // every cold visit.
+  const [health, setHealth] = useState(undefined)
   const [ingest, setIngest] = useState(null)
   const [inference, setInference] = useState(null)
   const [telemetry, setTelemetry] = useState([])
