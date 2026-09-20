@@ -23,6 +23,13 @@ import ActionBox from './components/ActionBox'
 import { ProgressBar } from './components/Primitives'
 import { IconAlert, IconX } from './components/Icons'
 
+/*
+ * Replaced at build time by Vite (see vite.config.js). Declared with a
+ * fallback so the module still evaluates under a bare `vite dev` from a
+ * config that predates the define.
+ */
+const BUILD_DATE = typeof __BUILD_DATE__ === 'string' ? __BUILD_DATE__ : '2026-01-01'
+
 /**
  * One pipeline stage. The code-comment label is the reference template's own
  * device for section headers, and it earns its place here: these really are
@@ -261,8 +268,18 @@ export default function App() {
           </Section>
         </div>
 
+        {/*
+          The right-hand column is provenance, not decoration. A hydrographer
+          reading a machine-derived contact wants to know which datum it is in
+          and which build produced it, and both belong somewhere permanent
+          rather than in a release note nobody keeps.
+
+          The detector version comes from /api/health, so it describes what is
+          actually serving rather than what this bundle was built against --
+          the two drift apart the moment either side deploys alone.
+        */}
         <footer className="mt-28 border-t border-shell pt-8">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex flex-col gap-8 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <p className="flex items-baseline gap-2.5">
                 <span className="h-[7px] w-[7px] shrink-0 translate-y-[-1px] bg-azure" />
@@ -270,15 +287,36 @@ export default function App() {
                   Wreckognise
                 </span>
               </p>
-              <p className="mt-2 max-w-lg text-xs leading-relaxed text-ink-faint">
+              <p className="mt-3 max-w-lg text-xs leading-relaxed text-ink-faint">
                 Automated marine survey agent. AI-derived contacts are decision support,
                 not a substitute for qualified hydrographic review.
               </p>
             </div>
-            <p className="font-mono text-2xs text-ink-faint">
-              smart india hackathon 2026 &middot; wgs-84 / epsg:4326
-            </p>
+
+            <dl className="grid gap-x-6 gap-y-1.5 font-mono text-2xs text-ink-faint sm:text-right">
+              <div className="flex gap-2 sm:justify-end">
+                <dt className="text-ink-faint/60">datum</dt>
+                <dd className="text-ink-dim">WGS-84 &middot; EPSG:4326</dd>
+              </div>
+              <div className="flex gap-2 sm:justify-end">
+                <dt className="text-ink-faint/60">detector</dt>
+                <dd className="text-ink-dim">
+                  {health?.version ? `v${health.version}` : 'offline'}
+                  {health?.detection_engine ? ` · ${health.detection_engine}` : ''}
+                </dd>
+              </div>
+              <div className="flex gap-2 sm:justify-end">
+                <dt className="text-ink-faint/60">updated</dt>
+                <dd className="text-ink-dim">
+                  <time dateTime={BUILD_DATE}>{BUILD_DATE}</time>
+                </dd>
+              </div>
+            </dl>
           </div>
+
+          <p className="mt-8 border-t border-shell/60 pt-5 font-mono text-2xs text-ink-faint/70">
+            &copy; {BUILD_DATE.slice(0, 4)} Wreckognise
+          </p>
         </footer>
 
       </main>

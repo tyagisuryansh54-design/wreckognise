@@ -66,7 +66,7 @@ function Shell() {
           <div className="mx-auto flex max-w-7xl flex-col gap-2 px-5 py-3 sm:flex-row sm:items-center sm:justify-between lg:px-10">
             <TelemetryStrip telemetry={telemetry} fps={fps} />
             <span className="mono text-[9px] tracking-[0.2em] text-[var(--ink-dim)]">
-              WGS-84 / EPSG:4326 &middot; SIH 2026
+              WGS-84 / EPSG:4326
             </span>
           </div>
         </footer>
