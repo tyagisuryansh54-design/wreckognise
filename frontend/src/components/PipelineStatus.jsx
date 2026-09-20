@@ -1,5 +1,5 @@
 import { BentoCard, Meter, Stat } from './Primitives'
-import { classLabel, severityStyle } from '../utils/format'
+import { classLabel } from '../utils/format'
 
 const STAGES = [
   { id: 'ingest', label: 'Ingest', detail: 'pyxtf decode' },
