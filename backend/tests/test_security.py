@@ -171,9 +171,21 @@ def test_cors_not_credentialed(client: TestClient) -> None:
         },
     )
     check("preflight allowed for a known origin", r.status_code in (200, 204), f"got {r.status_code}")
+    # This assertion used to require the OPPOSITE, and that is how a broken
+    # policy shipped: the browser client sends credentials:'include' on every
+    # request, so a response without this header is rejected before any handler
+    # runs -- for every route, not only authenticated ones.
     check(
-        "credentials are not advertised",
-        "access-control-allow-credentials" not in r.headers,
+        "credentials are advertised on preflight",
+        r.headers.get("access-control-allow-credentials") == "true",
+        r.headers.get("access-control-allow-credentials", "<absent>"),
+    )
+
+    simple = client.get("/api/health", headers={"Origin": origin, **unique_ip(20)})
+    check(
+        "credentials are advertised on a simple request",
+        simple.headers.get("access-control-allow-credentials") == "true",
+        simple.headers.get("access-control-allow-credentials", "<absent>"),
     )
 
     r = client.get("/api/health", headers={"Origin": "https://evil.example", **unique_ip(19)})

@@ -113,15 +113,34 @@ app = FastAPI(
 app.add_middleware(AuthGateMiddleware)
 app.add_middleware(BodySizeLimitMiddleware)
 app.add_middleware(RateLimitMiddleware)
+# Credentialed CORS with a wildcard origin is the one combination that turns
+# "any site may read your API" from a lint warning into a fact. Starlette
+# silently degrades it; this refuses to start instead.
+if "*" in settings.cors_origin_list:
+    raise RuntimeError(
+        "WRECKOGNISE_CORS_ORIGINS must list explicit origins: a wildcard cannot "
+        "be combined with credentialed requests."
+    )
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,
     allow_origin_regex=settings.cors_origin_regex,
-    # Only once there is a session cookie to send. A credentialed policy is
-    # strictly wider, so it stays off on deployments with no account
-    # configured, and the origin list -- never a wildcard -- is what keeps it
-    # safe when it is on.
-    allow_credentials=settings.auth_enabled,
+    # Unconditionally true, and it must stay that way.
+    #
+    # The browser client sends every request with credentials:'include' so the
+    # session cookie rides along when auth is on. A response without
+    # Access-Control-Allow-Credentials:true is then rejected BY THE BROWSER
+    # before any handler sees it -- not just for authenticated routes, for all
+    # of them. Making this conditional on auth_enabled shipped exactly that:
+    # auth was off in production, the header went out empty, and every call
+    # from the dashboard failed CORS while the API answered 200 to curl.
+    #
+    # What makes a credentialed policy safe is the origin list, not this flag.
+    # allow_origins is explicit and never a wildcard; the assertion below
+    # refuses to start if that ever changes, because "*" with credentials is
+    # the combination that actually leaks.
+    allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "OPTIONS"],
     allow_headers=["Content-Type", "Accept"],
     max_age=600,
