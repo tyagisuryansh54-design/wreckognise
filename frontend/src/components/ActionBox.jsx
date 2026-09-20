@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import CopyButton from './CopyButton'
 import { Badge, BentoCard, CardHeader, EmptyState, Spinner } from './Primitives'
 import {
   IconCheck,
@@ -107,7 +108,14 @@ export default function ActionBox({
                 <h3 className="mt-1 font-display text-lg font-semibold text-ink">
                   {classLabel(selected.label)}
                 </h3>
-                <p className="font-mono text-2xs text-ink/40">{selected.detection_id}</p>
+                <p className="flex items-center gap-1 font-mono text-2xs text-ink/40">
+                  {selected.detection_id}
+                  <CopyButton
+                    value={selected.detection_id}
+                    srLabel="contact ID"
+                    iconOnly
+                  />
+                </p>
               </div>
               <div className="flex shrink-0 flex-col items-end gap-1.5">
                 {REVIEW_CHIP[selected.review_status] && (
@@ -130,10 +138,23 @@ export default function ActionBox({
                 </>
               ) : (
                 <>
-                  {toDMS(selected.geo.latitude, 'lat')}
-                  <br />
-                  {toDMS(selected.geo.longitude, 'lon')}
-                  <br />
+                  <span className="flex items-start justify-between gap-2">
+                    <span>
+                      {toDMS(selected.geo.latitude, 'lat')}
+                      <br />
+                      {toDMS(selected.geo.longitude, 'lon')}
+                    </span>
+                    {/* Displayed as DMS, copied as full-precision decimal
+                        degrees -- that is what a plotter ingests, and the
+                        tooltip says so rather than leaving it a surprise. */}
+                    <CopyButton
+                      value={`${selected.geo.latitude}, ${selected.geo.longitude}`}
+                      srLabel="position in decimal degrees"
+                      title="Copy decimal degrees (WGS-84)"
+                      iconOnly
+                      className="-mt-0.5"
+                    />
+                  </span>
                   <span className="text-ink/35">
                     ± {selected.geo.horizontal_uncertainty_m.toFixed(2)} m ·{' '}
                     {(selected.confidence * 100).toFixed(1)}% confidence

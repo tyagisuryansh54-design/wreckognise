@@ -8,7 +8,7 @@
  * thing off the main thread.
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { IconMenu, IconX } from './Icons'
 
 const LINKS = [
@@ -23,6 +23,7 @@ const LINKS = [
 export default function SiteNav() {
   const [active, setActive] = useState(null)
   const [open, setOpen] = useState(false)
+  const toggleRef = useRef(null)
 
   useEffect(() => {
     const sections = LINKS.map((l) => document.getElementById(l.id)).filter(Boolean)
@@ -45,13 +46,23 @@ export default function SiteNav() {
 
   useEffect(() => {
     if (!open) return
-    const onKey = (e) => e.key === 'Escape' && setOpen(false)
+    // Focus returns to the control that opened the drawer. Without it,
+    // dismissing with Escape drops focus to <body> and the next Tab restarts
+    // at the top of the document.
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return
+      setOpen(false)
+      toggleRef.current?.focus({ preventScroll: true })
+    }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [open])
 
   const go = (id) => {
     setOpen(false)
+    // preventScroll matters here: a plain focus() would fight the smooth
+    // scroll that follows and snap the page back to the header.
+    toggleRef.current?.focus({ preventScroll: true })
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
@@ -81,6 +92,7 @@ export default function SiteNav() {
               key={l.id}
               type="button"
               onClick={() => go(l.id)}
+              aria-current={active === l.id ? 'location' : undefined}
               className={`font-mono text-xs transition-colors ${
                 active === l.id ? 'text-azure' : 'text-ink-dim hover:text-ink'
               }`}
@@ -91,11 +103,16 @@ export default function SiteNav() {
         </div>
 
         <button
+          ref={toggleRef}
           type="button"
           onClick={() => setOpen((o) => !o)}
-          aria-label={open ? 'Close menu' : 'Open menu'}
+          aria-label="Menu"
           aria-expanded={open}
-          className="text-ink-dim transition-colors hover:text-azure md:hidden"
+          aria-controls="site-nav-mobile"
+          /* -m-2 p-2 grows a 16px icon to a 32px target without moving
+             anything: the negative margin cancels the padding's effect on
+             layout, so header spacing is pixel-identical. */
+          className="-m-2 p-2 text-ink-dim transition-colors hover:text-azure md:hidden"
         >
           {open ? <IconX className="h-4 w-4" /> : <IconMenu className="h-4 w-4" />}
         </button>
@@ -104,12 +121,20 @@ export default function SiteNav() {
       {/* Mobile drawer: slides down out of the header rather than covering the
           page, so the reader keeps their place. */}
       {open && (
-        <div className="border-t border-shell/70 bg-cream/95 backdrop-blur-md md:hidden">
+        <nav
+          id="site-nav-mobile"
+          aria-label="Sections"
+          /* Caps at the viewport and scrolls inside itself. On a short phone
+             in landscape the six links otherwise run off the bottom with no
+             way to reach the last of them. */
+          className="max-h-[calc(100dvh-4rem)] overflow-y-auto scroll-slim border-t border-shell/70 bg-cream/95 backdrop-blur-md md:hidden"
+        >
           {LINKS.map((l) => (
             <button
               key={l.id}
               type="button"
               onClick={() => go(l.id)}
+              aria-current={active === l.id ? 'location' : undefined}
               className={`block w-full border-b border-shell/60 px-5 py-3.5 text-left font-mono text-xs transition-colors last:border-0 ${
                 active === l.id ? 'text-azure' : 'text-ink-dim hover:text-ink'
               }`}
@@ -117,7 +142,7 @@ export default function SiteNav() {
               {l.label}
             </button>
           ))}
-        </div>
+        </nav>
       )}
     </header>
   )

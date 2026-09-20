@@ -4,6 +4,7 @@ import { useInView } from './hooks/useMotion'
 import { useSurvey } from './hooks/useSurvey'
 import Hero from './components/Hero'
 import LoginPage from './components/LoginPage'
+import SkipLink from './components/SkipLink'
 import SiteNav from './components/SiteNav'
 import HazardAlert from './components/HazardAlert'
 import SonarBackdrop from './components/SonarBackdrop'
@@ -104,11 +105,19 @@ export default function App() {
 
   return (
     <div className="min-h-screen">
+      {/* First child, deliberately: DOM order IS tab order, so this has to
+          precede the header to be the first stop. It sits inside the
+          authenticated tree, which correctly keeps it off the login screen. */}
+      <SkipLink />
       <ProgressBar value={progress} />
       <SonarBackdrop />
       <SiteNav />
 
-      <main className="mx-auto max-w-6xl px-5 pb-24 pt-16 sm:px-8">
+      {/* tabIndex={-1} makes this focusable by the skip link without putting
+          it in the tab order itself. Without it the browser moves the visual
+          viewport but leaves focus on <body>, so the next Tab returns to the
+          header the user just skipped. */}
+      <main id="content" tabIndex={-1} className="mx-auto max-w-6xl px-5 pb-24 pt-16 focus:outline-none sm:px-8">
         <Hero
           health={health}
           stage={stage}

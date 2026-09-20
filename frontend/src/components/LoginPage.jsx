@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { login } from '../utils/api'
+import { IconEye } from './Icons'
 
 /**
  * Sign-in screen.
@@ -14,6 +15,7 @@ export default function LoginPage({ onAuthenticated }) {
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [revealed, setReveal] = useState(false)
   const firstField = useRef(null)
 
   useEffect(() => {
@@ -99,17 +101,43 @@ export default function LoginPage({ onAuthenticated }) {
             >
               Passphrase
             </label>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={busy}
-              required
-              className="mt-1.5 w-full rounded-bento border border-ink/15 bg-sand px-3.5 py-2.5 font-mono text-sm text-ink outline-none transition-colors placeholder:text-ink/25 focus:border-azure/70 disabled:opacity-50"
-            />
+            {/*
+              The toggle is a sibling, not a wrapper, so the input keeps its
+              own focus ring and `autoComplete="current-password"` is
+              untouched -- password managers key off that attribute and the
+              type swap alone does not disturb them.
+            */}
+            <div className="relative mt-1.5">
+              <input
+                id="password"
+                name="password"
+                type={revealed ? 'text' : 'password'}
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={busy}
+                required
+                className="w-full rounded-bento border border-ink/15 bg-sand py-2.5 pl-3.5 pr-11 font-mono text-sm text-ink outline-none transition-colors placeholder:text-ink/25 focus:border-azure/70 disabled:opacity-50"
+              />
+              <button
+                type="button"
+                onClick={() => setReveal((r) => !r)}
+                disabled={busy}
+                /* aria-pressed, not a label that flips between "Show" and
+                   "Hide": the control's name should stay constant while its
+                   STATE changes, or a screen reader announces a rename every
+                   time it is toggled. */
+                aria-pressed={revealed}
+                aria-controls="password"
+                aria-label="Show passphrase"
+                title={revealed ? 'Hide passphrase' : 'Show passphrase'}
+                className={`absolute inset-y-0 right-0 grid w-11 place-items-center rounded-r-bento transition-colors disabled:opacity-40 ${
+                  revealed ? 'text-azure' : 'text-ink/35 hover:text-ink/70'
+                }`}
+              >
+                <IconEye className="h-4 w-4" />
+              </button>
+            </div>
           </div>
 
           {/* Announced, not just coloured -- a screen reader has to hear a

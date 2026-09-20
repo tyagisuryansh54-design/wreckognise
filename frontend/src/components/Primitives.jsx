@@ -170,7 +170,14 @@ export function ProgressBar({ value, dark = false }) {
   if (!value) return null
   return (
     <div
-      className={`fixed inset-x-0 top-0 z-50 h-0.5 ${dark ? 'bg-cream/10' : 'bg-ink/8'}`}
+      /*
+       * z-[55], above the header rather than level with it. Both this and
+       * SiteNav were z-50 and both are fixed at top-0, so paint order fell to
+       * DOM order -- and this is mounted first in App.jsx, which meant the
+       * blurred header painted straight over it. The pipeline progress bar has
+       * been invisible in production for as long as the two have coexisted.
+       */
+      className={`fixed inset-x-0 top-0 z-[55] h-0.5 ${dark ? 'bg-cream/10' : 'bg-ink/8'}`}
       role="progressbar"
       aria-valuenow={value}
       aria-valuemin={0}

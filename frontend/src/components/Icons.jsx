@@ -154,3 +154,12 @@ export const IconArrowRight = (p) => (
     <path d="M5 12h14M13 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 )
+
+export function IconCopy({ className = 'h-4 w-4' }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+      <rect x="9" y="9" width="11" height="11" rx="2" strokeLinejoin="round" />
+      <path d="M5 15V6a2 2 0 0 1 2-2h9" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
