@@ -23,7 +23,7 @@
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
-import { BentoCard, CardHeader, EmptyState } from './Primitives'
+import { BentoCard, CardHeader, EmptyState, Spinner } from './Primitives'
 import { IconLayers } from './Icons'
 import { api, assetUrl } from '../utils/api'
 
@@ -198,11 +198,32 @@ export default function ReliefView({ ingest, detections = [], onRecover }) {
         setStatus('expired')
         // Rebuild it rather than asking the operator to. The call that made
         // this survey is replayable, so the honest recovery is to replay it.
-        if (onRecover && recoveredFor.current !== ingest.survey_id) {
-          recoveredFor.current = ingest.survey_id
-          setStatus('recovering')
-          onRecover()
-        }
+        if (!onRecover || recoveredFor.current === ingest.survey_id) return
+        recoveredFor.current = ingest.survey_id
+        setStatus('recovering')
+
+        /*
+         * The result is checked, and that is the whole point.
+         *
+         * useSurvey.run() catches everything and resolves to null, so a replay
+         * that fails -- a cold start past the timeout, a 429 from the ingest
+         * throttle, a 503 mid-deploy -- never calls setIngest. Nothing changes,
+         * this effect never re-runs, and the "rebuilding…" line stays on screen
+         * for good. Fire-and-forget turned a recoverable failure into a
+         * permanent one.
+         */
+        Promise.resolve(onRecover()).then(
+          (rebuilt) => {
+            if (disposed || rebuilt) return   // success re-runs the effect
+            recoveredFor.current = null       // let the operator try again
+            setStatus('expired')
+          },
+          () => {
+            if (disposed) return
+            recoveredFor.current = null
+            setStatus('expired')
+          },
+        )
       })
     }
     image.src = assetUrl(src)
@@ -261,21 +282,44 @@ export default function ReliefView({ ingest, detections = [], onRecover }) {
             </p>
           )}
           {status === 'recovering' && (
-            <p className="mt-2 font-mono text-2xs text-azure">
-              the server no longer had this survey — rebuilding it…
+            <p className="mt-2 flex items-center gap-2 font-mono text-2xs text-azure">
+              <Spinner className="h-3 w-3" />
+              the server no longer had this survey — rebuilding it. A sleeping
+              instance can take up to a minute to answer.
             </p>
           )}
-          {status === 'expired' && (
-            <p className="mt-2 font-mono text-2xs text-amber">
-              this survey is no longer on the server and could not be rebuilt
-              automatically — ingest the line again.
-            </p>
-          )}
-          {status === 'error' && (
-            <p className="mt-2 font-mono text-2xs text-coral">
-              could not load the waterfall — the survey is still on the server,
-              so this is the image request itself failing.
-            </p>
+
+          {/* Both failure states are recoverable by hand, so both offer the
+              control rather than describing what the operator should go and
+              do somewhere else. */}
+          {(status === 'expired' || status === 'error') && (
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+              <p
+                className={`font-mono text-2xs ${
+                  status === 'expired' ? 'text-amber' : 'text-coral'
+                }`}
+              >
+                {status === 'expired'
+                  ? 'the server no longer has this survey and the rebuild did not complete'
+                  : 'could not load the waterfall — the survey is still on the server, so this is the image request failing'}
+              </p>
+              {onRecover && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    recoveredFor.current = null
+                    setStatus('recovering')
+                    Promise.resolve(onRecover()).then(
+                      (r) => !r && setStatus('expired'),
+                      () => setStatus('expired'),
+                    )
+                  }}
+                  className="btn-ghost !px-2.5 !py-1 !text-2xs"
+                >
+                  Rebuild
+                </button>
+              )}
+            </div>
           )}
 
           <dl className="mt-3 grid grid-cols-3 gap-3 border-t border-ink/10 pt-3">

@@ -49,10 +49,21 @@ class Settings(BaseSettings):
     # orders of magnitude of headroom.
     max_json_body_bytes: int = 1_048_576
 
-    # Two throttle tiers. "heavy" covers decode/denoise/inference, which cost
-    # 8-40 s of CPU each on a 0.5 vCPU instance; "light" covers the rest.
-    rate_limit_heavy: int = 12
+    # Three tiers, because two conflated different risks at the same number.
+    #
+    # "heavy" is decode/denoise/inference: expensive, 8-40 s of CPU each on a
+    # 0.5 vCPU instance, but entirely legitimate to do repeatedly. A single
+    # operator iterating -- demo, two uploads, a re-detect, an automatic
+    # rebuild after the instance restarted -- passed twelve in five minutes and
+    # got a 429 on the rebuild, which surfaced as the relief view stuck
+    # mid-recovery.
+    #
+    # "auth" is credential guessing, where the low number IS the protection.
+    # It keeps the old budget.
+    rate_limit_heavy: int = 40
     rate_limit_heavy_window_s: int = 300
+    rate_limit_auth: int = 12
+    rate_limit_auth_window_s: int = 300
     rate_limit_light: int = 120
     rate_limit_light_window_s: int = 60
 

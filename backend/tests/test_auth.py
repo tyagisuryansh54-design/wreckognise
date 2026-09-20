@@ -149,13 +149,17 @@ def test_login_throttled(client: TestClient) -> None:
             json={"username": USERNAME, "password": "wrong"},
             headers=headers,
         ).status_code
-        for _ in range(settings.rate_limit_heavy + 2)
+        for _ in range(settings.rate_limit_auth + 2)
     ]
     check("attempts eventually return 429", 429 in statuses, f"statuses {statuses}")
+    # The AUTH tier, not the heavy one. Login guards credential guessing and
+    # keeps a deliberately tight budget; ingest and inference are expensive but
+    # legitimate to repeat, and sharing one number throttled an operator's
+    # rebuild as if it were a password attempt.
     check(
         "throttle engages only at the configured limit",
-        statuses[: settings.rate_limit_heavy].count(429) == 0,
-        f"first {settings.rate_limit_heavy}: {statuses[: settings.rate_limit_heavy]}",
+        statuses[: settings.rate_limit_auth].count(429) == 0,
+        f"first {settings.rate_limit_auth}: {statuses[: settings.rate_limit_auth]}",
     )
 
 

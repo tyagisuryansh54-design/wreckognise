@@ -192,11 +192,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     @staticmethod
     def _tier_for(path: str) -> tuple[str, int, int]:
-        if (
-            path in EXPENSIVE_PATHS
-            or path.startswith(EXPENSIVE_PREFIXES)
-            or path.endswith(EXPENSIVE_SUFFIXES)
-        ):
+        if path in EXPENSIVE_PATHS:
+            # Credential routes: the tight budget is the point.
+            return "auth", settings.rate_limit_auth, settings.rate_limit_auth_window_s
+        if path.startswith(EXPENSIVE_PREFIXES) or path.endswith(EXPENSIVE_SUFFIXES):
             return "heavy", settings.rate_limit_heavy, settings.rate_limit_heavy_window_s
         return "light", settings.rate_limit_light, settings.rate_limit_light_window_s
 
@@ -219,7 +218,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return
         self._last_sweep = now
         horizon = now - max(
-            settings.rate_limit_heavy_window_s, settings.rate_limit_light_window_s
+            settings.rate_limit_heavy_window_s,
+            settings.rate_limit_auth_window_s,
+            settings.rate_limit_light_window_s,
         )
         for key in [k for k, v in self._hits.items() if not v or v[-1] <= horizon]:
             del self._hits[key]
