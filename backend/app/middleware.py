@@ -40,11 +40,19 @@ UPLOAD_PATHS = ("/api/ingest/upload",)
 # Endpoints that cost real CPU: decode, denoise, inference, Eigen-CAM. These get
 # the strict bucket. Matched as prefixes, with a suffix check for the detect and
 # attention routes, which carry a survey id mid-path.
-# /api/auth/ is here for a different reason from the rest: not CPU cost, but
-# because an unthrottled login endpoint is an offline password cracker with a
-# network interface. scrypt makes each guess expensive for the attacker AND for
-# this instance, so the throttle protects both.
-EXPENSIVE_PREFIXES = ("/api/ingest/", "/api/auth/")
+# The auth routes are here for a different reason from the rest: not CPU cost,
+# but because an unthrottled login endpoint is an offline password cracker with
+# a network interface. scrypt makes each guess expensive for the attacker AND
+# for this instance, so the throttle protects both.
+#
+# Listed individually rather than by prefix. Covering all of /api/auth/ swept in
+# /status, which every page load calls before it can decide whether to render a
+# login screen -- twelve page views per five minutes per address, shared by
+# everyone behind one office NAT. It fails safe (a probe that cannot answer
+# never gates the app) but it is still wrong, and it was found by rate-limiting
+# a health check from this machine.
+EXPENSIVE_PREFIXES = ("/api/ingest/",)
+EXPENSIVE_PATHS = ("/api/auth/login", "/api/auth/password")
 EXPENSIVE_SUFFIXES = ("/detect", "/attention")
 
 
@@ -184,7 +192,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     @staticmethod
     def _tier_for(path: str) -> tuple[str, int, int]:
-        if path.startswith(EXPENSIVE_PREFIXES) or path.endswith(EXPENSIVE_SUFFIXES):
+        if (
+            path in EXPENSIVE_PATHS
+            or path.startswith(EXPENSIVE_PREFIXES)
+            or path.endswith(EXPENSIVE_SUFFIXES)
+        ):
             return "heavy", settings.rate_limit_heavy, settings.rate_limit_heavy_window_s
         return "light", settings.rate_limit_light, settings.rate_limit_light_window_s
 
